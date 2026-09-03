@@ -18,6 +18,10 @@ export async function findResearchUpdates(store: WorkspaceStore, learnerId: stri
   const workspace = await store.get(learnerId);
   const goal = workspace.goals.find((item) => item.id === goalId);
   if (!goal) throw new Error('Add a learning goal before asking the Researcher for updates.');
+  const completedLessons = workspace.materials.filter((material) => material.goalId === goalId && material.kind === 'lesson');
+  const coveredTopics = completedLessons.flatMap((material) => material.topics?.length
+    ? material.topics
+    : [material.title, ...material.sections.map((section) => section.title)]);
   const raw = await openAIChat({
     model: process.env.OPENAI_RESEARCH_MODEL ?? 'gpt-5.4-nano',
     builtInTools: ['web_search'],
@@ -25,7 +29,7 @@ export async function findResearchUpdates(store: WorkspaceStore, learnerId: stri
     messages: [
       { role: 'system', content: researcherAgent.systemPrompt },
       { role: 'system', content: 'Use web search. Return only a JSON object with a suggestions array of at most 3 items. Each item: title, summary, whyRelevant, and one direct sourceUrl. Prefer official sources. If nothing materially useful is new, return an empty array.' },
-      { role: 'user', content: `Find current, useful developments for this learning goal: ${JSON.stringify(goal)}. Existing suggestion titles: ${JSON.stringify(workspace.suggestions.map((item) => item.title))}.` },
+      { role: 'user', content: `Find current, useful developments for this learning goal: ${JSON.stringify(goal)}. Existing suggestion titles: ${JSON.stringify(workspace.suggestions.map((item) => item.title))}. Completed lesson titles: ${JSON.stringify(completedLessons.map((item) => item.title))}. Topics already covered: ${JSON.stringify(coveredTopics)}. Do not suggest a topic already covered unless the development materially changes it; prefer a genuinely new extension.` },
     ],
   });
   const generated = suggestionsSchema.parse(parseJsonObject(raw));

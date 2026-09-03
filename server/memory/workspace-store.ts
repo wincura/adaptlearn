@@ -18,9 +18,22 @@ const freshWorkspace = (learnerId: string): LearningWorkspace => ({
   updatedAt: new Date().toISOString(),
 });
 
+const legacyTopics = (material: LearningWorkspace['materials'][number]) => {
+  if (material.kind !== 'lesson' || material.topics?.length) return material.topics;
+  const usefulSections = material.sections
+    .map((section) => section.title.replace(/^\s*\d+[.)]\s*/, '').trim())
+    .filter((title) => !/\b(quiz|practice|exercise|where this leads|how to read)\b/i.test(title))
+    .slice(0, 6);
+  return usefulSections.length ? usefulSections : [material.title.slice(0, 80)];
+};
+
 const normalizedWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
   ...workspace,
   documents: workspace.documents ?? [],
+  materials: (workspace.materials ?? []).map((material) => ({
+    ...material,
+    ...(material.kind === 'lesson' ? { topics: legacyTopics(material) } : {}),
+  })),
 });
 
 export class WorkspaceStore {

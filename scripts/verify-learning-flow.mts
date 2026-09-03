@@ -11,7 +11,7 @@ process.env.OPENAI_KEY_FILE = keyFile;
 
 const { WorkspaceStore } = await import('../server/memory/workspace-store.ts');
 const { ingestDocument, loadRelevantDocumentContext } = await import('../server/knowledge/document-store.ts');
-const { createPlacement } = await import('../server/agents/assessor/placement.ts');
+const { createPlacement, submitPlacement } = await import('../server/agents/assessor/placement.ts');
 const { createTeacherMaterial } = await import('../server/agents/teacher/create-material.ts');
 
 const learnerId = 'verification-learner';
@@ -47,15 +47,37 @@ await store.update(learnerId, (workspace) => { workspace.documents.push(document
 
 const retrieved = await loadRelevantDocumentContext([document], 'AcmeFlow workflow rules preview trigger actions');
 const placement = await createPlacement(store, learnerId, goalId);
+const placementWorkspace = await store.get(learnerId);
+const privatePlacement = placementWorkspace.assessments.find((item) => item.id === placement.id);
+if (!privatePlacement) throw new Error('Verification placement was not persisted.');
+await submitPlacement(store, learnerId, placement.id, privatePlacement.questions.map((question) => question.correctIndex));
+const priorTopics = ['Workflow rule anatomy', 'Triggers, conditions, and actions', 'Preview-mode testing'];
+await store.update(learnerId, (workspace) => {
+  workspace.materials.push({
+    id: '54ddd410-25f8-46a0-abef-1a499c89ca97',
+    goalId,
+    owner: 'teacher',
+    kind: 'lesson',
+    title: 'AcmeFlow foundations',
+    summary: 'A seeded prior lesson used to verify topic continuity.',
+    topics: priorTopics,
+    assessedLevel: 'Professional',
+    placementAssessmentId: placement.id,
+    sections: [{ title: 'Rule anatomy', content: 'Triggers, conditions, actions, and Preview mode.', activities: [] }],
+    createdAt: new Date().toISOString(),
+  });
+});
 const lesson = await createTeacherMaterial(store, learnerId, goalId);
 const workspace = await store.get(learnerId);
 
 console.log(JSON.stringify({
   document: { status: document.status, characters: document.characterCount },
   retrieval: { usedDocuments: retrieved.usedDocuments, hasPrivateFact: retrieved.context.includes('Preview mode') },
-  placement: { questionCount: placement.questions.length },
+  placement: { questionCount: placement.questions.length, appliedLevel: lesson.assessedLevel, linkedAssessment: lesson.placementAssessmentId === placement.id },
   lesson: {
     kind: lesson.kind,
+    topics: lesson.topics,
+    hasNewTopic: lesson.topics?.some((topic) => !priorTopics.map((prior) => prior.toLowerCase()).includes(topic.toLowerCase())) ?? false,
     sectionCount: lesson.sections.length,
     publicSourceCount: lesson.sources?.filter((source) => source.origin === 'public-web').length ?? 0,
     uploadedSourceCount: lesson.sources?.filter((source) => source.origin === 'uploaded-document').length ?? 0,

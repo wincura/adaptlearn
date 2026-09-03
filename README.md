@@ -22,6 +22,8 @@ The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` 
 - A clear-chat control that removes only conversation history and retains the rest of the workspace
 - Automatic four-question placement after a new goal is saved, plus on-demand placement checks
 - Teacher-created lessons grounded in required web search, with clickable public source links
+- Per-goal lesson continuity: generated lessons persist canonical topic labels, and future research avoids topics already represented in that goal's lesson history
+- Placement-gated lessons: each new lesson records the completed placement assessment and level that shaped its difficulty and teaching style
 - PDF, DOCX, TXT, Markdown, and CSV documentation ingestion with local text extraction and basic relevant-excerpt retrieval for proprietary tools
 - Builder-generated practical-lab specifications based on the learner's goal and available Teacher context
 - Current-development searches using OpenAI's web-search tool, optional suggestions with sources, and explicit learner approval before a suggestion becomes material
@@ -39,5 +41,6 @@ See [docs/architecture.md](docs/architecture.md) for the detailed ownership map 
 - Scanned/image-only PDFs require OCR, which is not implemented. Legacy `.doc` files are not supported; save them as `.docx`, PDF, or text first.
 - Document retrieval uses lightweight local chunk ranking rather than a vector database; up to 2,000,000 extracted characters are stored per document and up to about 45,000 relevant characters are supplied to one lesson request.
 - Placement currently supports generated multiple-choice questions; open-ended rubric grading is not implemented.
+- A generated lesson counts its topics as covered for sequencing purposes; explicit read/completion tracking is not implemented yet.
 - There is one local learner identity and no authentication.
 - JSON persistence is intended for local single-user work, not concurrent production traffic.

@@ -47,6 +47,9 @@ export type LearningMaterial = {
   summary: string;
   sections: MaterialSection[];
   sources?: LearningSource[];
+  topics?: string[];
+  assessedLevel?: string;
+  placementAssessmentId?: string;
   createdAt: string;
 };
 

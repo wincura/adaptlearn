@@ -32,6 +32,19 @@ export function LearningStudio() {
   }, []);
 
   const activeGoal = workspace.goals.find((goal) => goal.status === 'active');
+  const completedPlacement = activeGoal && workspace.assessments
+    .filter((assessment) => assessment.goalId === activeGoal.id && assessment.completedAt)
+    .sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))[0];
+
+  const openPlacementForGoal = async () => {
+    if (!activeGoal) return;
+    setActiveAgent('assessor');
+    try {
+      const assessment = await api.createPlacement(learnerId, activeGoal.id);
+      setPlacementResult(undefined);
+      setPlacement(assessment);
+    } finally { setActiveAgent(undefined); }
+  };
 
   const runResearch = useCallback(async (silent = false) => {
     if (!activeGoal || activeAgent) return;
@@ -89,6 +102,13 @@ export function LearningStudio() {
   const runAgentAction = async (agent: 'teacher' | 'builder' | 'assessor' | 'researcher') => {
     if (!activeGoal) { setGoalOpen(true); return; }
     if (agent === 'researcher') { await runResearch(); return; }
+    if (agent === 'teacher' && !completedPlacement) {
+      try {
+        await openPlacementForGoal();
+        setToast('Complete this placement check first so the lesson matches your current level.');
+      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement check could not be prepared.'); }
+      return;
+    }
     setActiveAgent(agent);
     try {
       if (agent === 'assessor') { const assessment = await api.createPlacement(learnerId, activeGoal.id); setPlacementResult(undefined); setPlacement(assessment); }
@@ -106,6 +126,14 @@ export function LearningStudio() {
   };
 
   const acceptSuggestion = async (suggestion: ResearchSuggestion) => {
+    if (!activeGoal || suggestion.goalId !== activeGoal.id) return;
+    if (!completedPlacement) {
+      try {
+        await openPlacementForGoal();
+        setToast('Complete this placement check first so the suggested lesson matches your current level.');
+      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement check could not be prepared.'); }
+      return;
+    }
     setActiveAgent('teacher');
     try { const result = await api.acceptSuggestion(learnerId, suggestion.id); setWorkspace(result.workspace); setMaterial(result.material); setToast('Added. Your sourced optional lesson is ready.'); }
     catch (error) { setToast(error instanceof Error ? error.message : 'The optional learning page could not be created.'); }

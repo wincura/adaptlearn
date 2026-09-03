@@ -129,14 +129,16 @@ app.post('/api/research/suggestions/:suggestionId/accept', async (request, respo
   const suggestionId = z.string().uuid().parse(request.params.suggestionId);
   let goalId = '';
   let brief = '';
-  await store.update(input.learnerId, (current) => {
-    const suggestion = current.suggestions.find((item) => item.id === suggestionId);
-    if (!suggestion) throw new Error('Research suggestion not found.');
-    suggestion.status = 'accepted';
-    goalId = suggestion.goalId;
-    brief = `Turn the accepted Researcher suggestion into a scoped optional lesson: ${suggestion.title}. ${suggestion.summary}. Source: ${suggestion.sourceUrl ?? 'No source URL supplied.'}`;
-  });
+  const workspace = await store.get(input.learnerId);
+  const suggestion = workspace.suggestions.find((item) => item.id === suggestionId);
+  if (!suggestion) throw new Error('Research suggestion not found.');
+  goalId = suggestion.goalId;
+  brief = `Turn this approved suggestion into a scoped optional lesson: ${suggestion.title}. ${suggestion.summary}. Source: ${suggestion.sourceUrl ?? 'No source URL supplied.'}`;
   const material = await createTeacherMaterial(store, input.learnerId, goalId, brief);
+  await store.update(input.learnerId, (current) => {
+    const accepted = current.suggestions.find((item) => item.id === suggestionId);
+    if (accepted) accepted.status = 'accepted';
+  });
   response.status(201).json({ material, workspace: publicWorkspace(await store.get(input.learnerId)) });
 });
 
@@ -157,7 +159,7 @@ app.post('/api/documents', upload.single('document'), async (request, response) 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next;
   const message = error instanceof Error ? error.message : 'Unknown server error';
-  const status = error instanceof z.ZodError ? 400 : 500;
+  const status = error instanceof z.ZodError ? 400 : message.startsWith('Complete the placement check') ? 409 : 500;
   console.error(`[AdaptLearn] ${message}`);
   response.status(status).json({ error: message });
 });

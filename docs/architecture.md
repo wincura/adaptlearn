@@ -9,7 +9,7 @@ The workspace starts empty. No generic Python, French, Excel, SQL, or other cour
 | Agent | Owns | Explicitly does not own |
 |---|---|---|
 | Overall Coordinator | Learner profile, background, preferences, goals, persistent memory, routing, progress overview | Full lesson authoring, lab construction, grading, web freshness claims |
-| Teacher | Web-researched lessons, uploaded-document synthesis, explanations, quizzes, exercises, hands-on activity briefs | Level decisions, final assessment scores, XP, infrastructure |
+| Teacher | Web-researched lessons, per-goal topic continuity, placement-adapted explanations, uploaded-document synthesis, quizzes, exercises, hands-on activity briefs | Level decisions, final assessment scores, XP, infrastructure |
 | Builder | Practice-lab specifications, starter states/files, simulated environments, expected results and reset paths | Curriculum priorities, grading, learner memory |
 | Assessor | Placement and mastery checks, rubrics, level decisions, XP and badges | Teaching answers during a test, lesson authoring, web research |
 | Researcher | Current web research, official-source discovery, freshness, optional suggestions | Adding curriculum without consent, writing final lessons, grading |
@@ -58,6 +58,8 @@ The store is deliberately behind `WorkspaceStore`. For AWS migration, implement 
 - Normal agent turns use the model configured in `keys/key.txt` or `OPENAI_MODEL`.
 - Current-development searches use `gpt-5.4-nano` by default with OpenAI's `web_search` built-in tool.
 - Every Teacher lesson requires a web-search call and at least two public source URLs. Relevant excerpts from uploaded documentation are included when applicable and are labeled separately from public sources.
+- Lesson generation is stateful per goal. Research receives previous lesson titles and canonical covered topics; each new lesson persists its own topics, assessed level, and placement-assessment identifier.
+- A completed placement for the same goal is a prerequisite for lesson generation. Retaking placement changes the adaptation input for future lessons while existing lessons retain their original linkage.
 - Uploaded-document text is treated as untrusted reference data, never as instructions. Extraction and lexical chunk ranking happen locally; selected excerpts are then sent to OpenAI for lesson creation.
 - The key is read at runtime, never returned by an endpoint, and the entire `keys/` folder is git-ignored.
 - Agent prompts state ownership limits and prohibit claims about actions without tool evidence.
