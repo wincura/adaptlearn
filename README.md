@@ -1,6 +1,6 @@
 # AdaptLearn
 
-AdaptLearn is a local-first adaptive learning studio for beginners through professionals. It combines guided curricula, placement and ongoing assessment, practical activities, gamification, source-grounded teaching, and an always-available learning coach.
+AdaptLearn is a local-first, adaptive learning workspace. It starts with no seeded courses or learning materials. A learner adds a goal, completes a short placement check, then creates sourced lessons, assessments, practical activities, or current-learning suggestions for that goal.
 
 ## Run locally
 
@@ -11,28 +11,33 @@ npm install
 npm run dev:all
 ```
 
-Open `http://localhost:3000`. The API runs at `http://localhost:8787` and stores local data under `data/`.
+The app runs at `http://localhost:3000`; its Express API runs at `http://localhost:8787`.
 
-The default `AI_PROVIDER=mock` makes the product usable without credentials. Copy `.env.example` to `.env`, choose `openai` or `anthropic`, and add the matching key to use a hosted model. Never commit `.env`.
+The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` by default. That folder is git-ignored. For a key replaced in-place, the former `GROQ_API_KEY` label is accepted temporarily. Environment variables can override the key, model, or key-file location without changing application code.
 
-## What this prototype includes
+## What works
 
-- Three-step learning-path onboarding with familiarity and learning-style capture
-- Placement-ready flow and persistent local learner preferences
-- Guided Python course, adaptive lesson, practical quick check, XP, streaks, badges, and progress evidence
-- Side coach with Teacher and free Conversation modes
-- Learning-path library for Python, French, Excel, SQL, Java OOP, and specialist documentation
-- Researcher suggestions kept optional until the learner accepts them
-- Local Express API with provider-neutral AI and profile-store boundaries
+- Real OpenAI-backed multi-turn chat through one learner-facing guide, with internal task routing hidden from the interface
+- Persistent local workspace memory with editable profile context, goals, conversation, outputs, assessments, XP, and badges
+- A clear-chat control that removes only conversation history and retains the rest of the workspace
+- Automatic four-question placement after a new goal is saved, plus on-demand placement checks
+- Teacher-created lessons grounded in required web search, with clickable public source links
+- PDF, DOCX, TXT, Markdown, and CSV documentation ingestion with local text extraction and basic relevant-excerpt retrieval for proprietary tools
+- Builder-generated practical-lab specifications based on the learner's goal and available Teacher context
+- Current-development searches using OpenAI's web-search tool, optional suggestions with sources, and explicit learner approval before a suggestion becomes material
 
-## Architecture
+## Agent boundaries
 
-The browser app uses React, TypeScript, MUI, and Motion. The local API is Node.js/Express. Two interfaces isolate infrastructure decisions:
+The application routes every conversational turn through the Overall Coordinator. Each specialist owns a narrow class of output in separate backend modules under `server/agents/`. These implementation details are intentionally hidden from the learner-facing interface.
 
-- `server/ai/provider.ts` selects mock, OpenAI, or Anthropic today and is the seam for Bedrock/AgentCore later.
-- `server/storage/profile-store.ts` defines persistent learner memory; the local JSON implementation can be replaced by an S3-backed store without changing route logic.
+See [docs/architecture.md](docs/architecture.md) for the detailed ownership map and AWS migration seams.
 
-The Express app remains a conventional stateless HTTP service so it can be wrapped for AWS Lambda later. Uploaded documentation is kept under `data/uploads` locally; production should place originals in S3 and index extracted chunks through a background ingestion workflow.
+## Current limitations
 
-See [docs/architecture.md](docs/architecture.md) for the target agent and AWS migration design.
-"# adaptlearn" 
+- Builder outputs are lab specifications, not live executable sandboxes.
+- Text extraction is local, but relevant excerpts from uploaded documents are sent to OpenAI when a lesson is created. Upload only documentation you are authorized to process that way.
+- Scanned/image-only PDFs require OCR, which is not implemented. Legacy `.doc` files are not supported; save them as `.docx`, PDF, or text first.
+- Document retrieval uses lightweight local chunk ranking rather than a vector database; up to 2,000,000 extracted characters are stored per document and up to about 45,000 relevant characters are supplied to one lesson request.
+- Placement currently supports generated multiple-choice questions; open-ended rubric grading is not implemented.
+- There is one local learner identity and no authentication.
+- JSON persistence is intended for local single-user work, not concurrent production traffic.

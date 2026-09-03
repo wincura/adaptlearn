@@ -30,6 +30,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local credentials
+/keys/*
+
 # local-first runtime data
 /data/*
 !/data/.gitkeep
