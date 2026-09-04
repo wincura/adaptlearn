@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { ResearchSuggestion } from '../../../shared/contracts.ts';
-import { openAIChat, parseJsonObject } from '../../ai/openai-client.ts';
-import type { WorkspaceStore } from '../../memory/workspace-store.ts';
+import { aiChat, parseJsonObject } from '../../ai/provider.ts';
+import type { WorkspaceRepository } from '../../storage/workspace-repository.ts';
 import { researcherAgent } from './agent.ts';
 
 const suggestionsSchema = z.object({
@@ -14,7 +14,7 @@ const suggestionsSchema = z.object({
   })).max(3),
 });
 
-export async function findResearchUpdates(store: WorkspaceStore, learnerId: string, goalId: string) {
+export async function findResearchUpdates(store: WorkspaceRepository, learnerId: string, goalId: string) {
   const workspace = await store.get(learnerId);
   const goal = workspace.goals.find((item) => item.id === goalId);
   if (!goal) throw new Error('Add a learning goal before asking the Researcher for updates.');
@@ -22,8 +22,8 @@ export async function findResearchUpdates(store: WorkspaceStore, learnerId: stri
   const coveredTopics = completedLessons.flatMap((material) => material.topics?.length
     ? material.topics
     : [material.title, ...material.sections.map((section) => section.title)]);
-  const raw = await openAIChat({
-    model: process.env.OPENAI_RESEARCH_MODEL ?? 'gpt-5.4-nano',
+  const raw = await aiChat({
+    workload: 'research',
     builtInTools: ['web_search'],
     temperature: 0.15,
     messages: [

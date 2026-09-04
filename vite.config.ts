@@ -47,6 +47,10 @@ export default defineConfig(async () => {
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
     server: {
+      proxy: {
+        '/api': 'http://localhost:8787',
+        '/health': 'http://localhost:8787',
+      },
       watch: {
         // Binary installers may be locked by Windows while they are copied or
         // scanned. Watching them can crash Vite and strand the HMR client.

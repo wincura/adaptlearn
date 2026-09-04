@@ -1,27 +1,29 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
 import type { KnowledgeDocument } from '../../shared/contracts.ts';
+import type {
+  KnowledgeRepository,
+  KnowledgeScope,
+  RelevantDocumentContext,
+  RetrievalQuery,
+  RetrievedPassage,
+  UploadedDocumentInput,
+} from './contracts.ts';
+import { formatRetrievedContext } from './rag.ts';
 
 const knowledgeDirectory = path.resolve(process.cwd(), 'data', 'knowledge');
+const uploadDirectory = path.resolve(process.cwd(), process.env.UPLOAD_DIRECTORY ?? path.join('data', 'uploads'));
 const maximumStoredCharacters = 2_000_000;
 const maximumContextCharacters = 45_000;
 const chunkSize = 3_200;
 const chunkOverlap = 300;
 const supportedExtensions = new Set(['.pdf', '.docx', '.txt', '.md', '.csv']);
 
-type UploadedFile = {
-  filename: string;
-  originalname: string;
-  mimetype: string;
-  path: string;
-  size: number;
-};
-
 const knowledgePath = (documentId: string) => path.join(knowledgeDirectory, `${documentId}.txt`);
 
-async function extractText(file: UploadedFile): Promise<string> {
+async function extractText(file: UploadedDocumentInput): Promise<string> {
   const extension = path.extname(file.originalname).toLowerCase();
   if (!supportedExtensions.has(extension)) {
     throw new Error('Unsupported document type. Upload a PDF, DOCX, TXT, Markdown, or CSV file.');
@@ -47,7 +49,7 @@ const normalizeText = (text: string) => text
   .replace(/\n{4,}/g, '\n\n\n')
   .trim();
 
-export async function ingestDocument(file: UploadedFile): Promise<KnowledgeDocument> {
+export async function ingestDocument(file: UploadedDocumentInput, scope: KnowledgeScope): Promise<KnowledgeDocument> {
   const extracted = normalizeText(await extractText(file));
   if (!extracted) throw new Error('No readable text was found in this document. Scanned PDFs need OCR, which is not available yet.');
   const truncated = extracted.length > maximumStoredCharacters;
@@ -63,10 +65,17 @@ export async function ingestDocument(file: UploadedFile): Promise<KnowledgeDocum
     characterCount: stored.length,
     truncated,
     uploadedAt: new Date().toISOString(),
+    scope,
+    provider: { backend: 'local-filesystem', sourceUri: `local-knowledge://${file.filename}` },
   };
 }
 
-type RankedChunk = { documentName: string; index: number; text: string; score: number };
+type RankedChunk = {
+  document: KnowledgeDocument;
+  index: number;
+  text: string;
+  score: number;
+};
 
 const queryTerms = (query: string) => [...new Set(
   query.toLowerCase().match(/[a-z0-9][a-z0-9+#.-]{2,}/g)?.filter((term) => ![
@@ -74,7 +83,7 @@ const queryTerms = (query: string) => [...new Set(
   ].includes(term)) ?? [],
 )].slice(0, 30);
 
-function makeChunks(documentName: string, text: string, terms: string[]): RankedChunk[] {
+function makeChunks(document: KnowledgeDocument, text: string, terms: string[]): RankedChunk[] {
   const chunks: RankedChunk[] = [];
   let index = 0;
   for (let start = 0; start < text.length; start += chunkSize - chunkOverlap) {
@@ -82,22 +91,28 @@ function makeChunks(documentName: string, text: string, terms: string[]): Ranked
     if (!chunk) continue;
     const lower = chunk.toLowerCase();
     const matches = terms.reduce((total, term) => total + (lower.includes(term) ? 1 : 0), 0);
-    chunks.push({ documentName, index, text: chunk, score: matches * 10 + (index === 0 ? 2 : 0) });
+    chunks.push({ document, index, text: chunk, score: matches * 10 + (index === 0 ? 2 : 0) });
     index += 1;
   }
   return chunks;
 }
 
-export async function loadRelevantDocumentContext(
+const documentIsVisible = (document: KnowledgeDocument, query: RetrievalQuery) => {
+  if (!document.scope) return true;
+  if (document.scope.learnerId !== query.scope.learnerId) return false;
+  return document.scope.visibility === 'learner' || document.scope.goalId === query.scope.goalId;
+};
+
+export async function retrieveLocalPassages(
   documents: KnowledgeDocument[],
-  query: string,
-): Promise<{ context: string; usedDocuments: string[] }> {
-  if (!documents.length) return { context: '', usedDocuments: [] };
-  const terms = queryTerms(query);
+  query: RetrievalQuery,
+): Promise<RetrievedPassage[]> {
+  if (!documents.length) return [];
+  const terms = queryTerms(query.text);
   const chunks: RankedChunk[] = [];
-  for (const document of documents.filter((item) => item.status === 'ready')) {
+  for (const document of documents.filter((item) => item.status === 'ready' && documentIsVisible(item, query))) {
     try {
-      chunks.push(...makeChunks(document.name, await readFile(knowledgePath(document.id), 'utf8'), terms));
+      chunks.push(...makeChunks(document, await readFile(knowledgePath(document.id), 'utf8'), terms));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
@@ -106,16 +121,50 @@ export async function loadRelevantDocumentContext(
 
   const selected: RankedChunk[] = [];
   let length = 0;
+  const characterLimit = query.maxCharacters ?? maximumContextCharacters;
   for (const chunk of chunks) {
-    const renderedLength = chunk.text.length + chunk.documentName.length + 60;
-    if (length + renderedLength > maximumContextCharacters) continue;
+    const renderedLength = chunk.text.length + chunk.document.name.length + 60;
+    if (length + renderedLength > characterLimit) continue;
     selected.push(chunk);
     length += renderedLength;
-    if (selected.length >= 14) break;
+    if (selected.length >= (query.topK ?? 14)) break;
   }
-  const usedDocuments = [...new Set(selected.map((chunk) => chunk.documentName))];
-  const context = selected.map((chunk) => (
-    `--- UPLOADED DOCUMENT: ${chunk.documentName} · excerpt ${chunk.index + 1} ---\n${chunk.text}`
-  )).join('\n\n');
-  return { context, usedDocuments };
+  return selected.map((chunk) => ({
+    text: chunk.text,
+    score: chunk.score,
+    source: {
+      documentId: chunk.document.id,
+      title: chunk.document.name,
+      uri: chunk.document.provider?.sourceUri,
+      excerpt: chunk.index + 1,
+    },
+    metadata: {
+      learnerId: chunk.document.scope?.learnerId ?? query.scope.learnerId,
+      ...(chunk.document.scope?.goalId ? { goalId: chunk.document.scope.goalId } : {}),
+      visibility: chunk.document.scope?.visibility ?? 'learner',
+      backend: chunk.document.provider?.backend ?? 'local-filesystem',
+    },
+  }));
 }
+
+export async function loadRelevantDocumentContext(
+  documents: KnowledgeDocument[],
+  query: string,
+  scope: Pick<KnowledgeScope, 'learnerId' | 'goalId'>,
+): Promise<RelevantDocumentContext> {
+  return formatRetrievedContext(await retrieveLocalPassages(documents, { text: query, scope }));
+}
+
+export class LocalKnowledgeRepository implements KnowledgeRepository {
+  readonly backend = 'local-filesystem';
+  ingest = ingestDocument;
+  retrieve = retrieveLocalPassages;
+  async remove(documents: KnowledgeDocument[]): Promise<void> {
+    await Promise.all(documents.flatMap((document) => [
+      unlink(knowledgePath(document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
+      unlink(path.join(uploadDirectory, document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
+    ]));
+  }
+}
+
+export const localKnowledgeRepository = new LocalKnowledgeRepository();

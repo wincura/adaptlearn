@@ -1,10 +1,13 @@
 import {
   ArrowForwardRounded,
+  AddRounded,
   AutoStoriesRounded,
   BoltRounded,
   CheckRounded,
   CloudUploadRounded,
   DescriptionRounded,
+  DeleteOutlineRounded,
+  EditRounded,
   TrackChangesRounded,
   SearchRounded,
 } from '@mui/icons-material';
@@ -15,15 +18,22 @@ type Props = {
   workspace: LearningWorkspace;
   activeAgent?: AgentId;
   onAddGoal: () => void;
+  onActivateGoal: (goalId: string) => void;
+  onEditGoal: () => void;
+  onDeleteGoal: () => void;
+  onDocuments: () => void;
   onMemory: () => void;
-  onAgentAction: (agent: 'teacher' | 'builder' | 'assessor' | 'researcher') => void;
+  onCreateLesson: () => void;
+  onAgentAction: (agent: 'builder' | 'assessor' | 'researcher') => void;
   onOpenMaterial: (material: LearningMaterial) => void;
   onAcceptSuggestion: (suggestion: ResearchSuggestion) => void;
   onUpload: () => void;
 };
 
-export function WorkspaceCanvas({ workspace, activeAgent, onAddGoal, onMemory, onAgentAction, onOpenMaterial, onAcceptSuggestion, onUpload }: Props) {
+export function WorkspaceCanvas({ workspace, activeAgent, onAddGoal, onActivateGoal, onEditGoal, onDeleteGoal, onDocuments, onMemory, onCreateLesson, onAgentAction, onOpenMaterial, onAcceptSuggestion, onUpload }: Props) {
   const goal = workspace.goals.find((item) => item.status === 'active');
+  const readyDocuments = workspace.documents.filter((document) => document.status === 'ready');
+  const processingDocuments = workspace.documents.filter((document) => document.status === 'processing');
   const materials = workspace.materials.filter((item) => !goal || item.goalId === goal.id);
   const completedPlacement = goal && workspace.assessments
     .filter((assessment) => assessment.goalId === goal.id && assessment.completedAt)
@@ -36,17 +46,17 @@ export function WorkspaceCanvas({ workspace, activeAgent, onAddGoal, onMemory, o
     <div className="workspace-canvas">
       <section className="coordinator-card">
         <div className="coordinator-icon"><TrackChangesRounded /></div>
-        <div><span>YOUR CURRENT DIRECTION</span><h1>{goal ? goal.title : 'What would you like to become better at?'}</h1><p>{goal ? `${goal.targetOutcome || goal.motivation || 'Your active learning goal'} · Your context and progress will stay connected as you learn.` : 'Start with a goal and a little background. AdaptLearn will shape the right next steps around you.'}</p></div>
+        <div><span>YOUR CURRENT DIRECTION</span><h1>{goal ? goal.title : 'What would you like to become better at?'}</h1><p>{goal ? goal.targetOutcome || goal.motivation || 'Your active learning goal' : 'Start with a goal and a little background. AdaptLearn will shape the right next steps around you.'}</p></div>
         <button onClick={onMemory}>View profile</button>
       </section>
 
-      {goal && <section className="goal-strip"><div><span>ACTIVE GOAL</span><strong>{goal.title}</strong></div><p>{completedPlacement ? `Lessons are adapted to your ${completedPlacement.level?.toLowerCase()} placement result.` : 'Complete placement before creating lessons so the difficulty can be adapted.'}</p><div className="goal-progress"><span>{completedPlacement?.level ?? 'Placement needed'}</span><b>{workspace.progress.xp} XP</b></div></section>}
+      {goal && <section className="goal-strip"><div className="goal-switcher"><span>ACTIVE GOAL · {workspace.goals.length} SAVED</span><div><select aria-label="Switch active learning goal" disabled={Boolean(activeAgent)} value={goal.id} onChange={(event) => onActivateGoal(event.target.value)}>{workspace.goals.map((savedGoal) => <option value={savedGoal.id} key={savedGoal.id}>{savedGoal.title}</option>)}</select><button aria-label="Edit active learning goal" title="Edit goal" disabled={Boolean(activeAgent)} onClick={onEditGoal}><EditRounded /></button><button className="danger" aria-label="Delete active learning goal" title="Delete goal" disabled={Boolean(activeAgent)} onClick={onDeleteGoal}><DeleteOutlineRounded /></button></div></div><div className="goal-progress"><span>{completedPlacement?.level ?? 'Placement needed'}</span><b>{workspace.progress.xp} XP</b></div></section>}
 
       <section className="materials-section">
-        <div className="section-heading"><div><span>LESSON LIBRARY</span><h2>{materials.length ? 'Ready to learn' : 'No lessons yet'}</h2></div><div><button onClick={onUpload}><CloudUploadRounded /> Add documentation</button>{goal && <button className="primary-small" disabled={Boolean(activeAgent)} onClick={() => onAgentAction('teacher')}>{completedPlacement ? <SearchRounded /> : <TrackChangesRounded />} {completedPlacement ? 'Find & create next lesson' : 'Take placement first'}</button>}</div></div>
-        {workspace.documents.length > 0 && <div className="knowledge-strip"><DescriptionRounded /><div><strong>{workspace.documents.length} uploaded {workspace.documents.length === 1 ? 'document' : 'documents'} ready</strong><span>{workspace.documents.slice(0, 3).map((document) => document.name).join(' · ')}{workspace.documents.length > 3 ? ` · +${workspace.documents.length - 3} more` : ''}</span><small>Text is extracted locally. Relevant excerpts are sent to OpenAI only when creating a lesson.</small></div></div>}
-        {coveredTopics.length > 0 && <div className="topic-history"><span>COVERED SO FAR</span><div>{coveredTopics.map((topic) => <small key={topic}>{topic}</small>)}</div><p>New lessons use this persistent history and move to an uncovered topic.</p></div>}
-        {materials.length === 0 ? <div className="empty-materials"><span><AutoStoriesRounded /></span><h3>Create something you can learn from.</h3><p>{completedPlacement ? 'The app will choose a suitable first topic at your assessed level, search current public sources, and combine them with relevant uploaded documentation.' : 'Start with the placement check. Its result determines the difficulty and teaching style of every lesson for this goal.'}</p>{!goal && <button onClick={onAddGoal}>Add your first goal <ArrowForwardRounded /></button>}{goal && <div><button disabled={Boolean(activeAgent)} onClick={() => onAgentAction('teacher')}>{completedPlacement ? <SearchRounded /> : <TrackChangesRounded />} {completedPlacement ? 'Find & create first lesson' : 'Take placement check'}</button><button disabled={Boolean(activeAgent)} onClick={() => onAgentAction('builder')}><BoltRounded /> Create practice activity</button></div>}</div> : <div className="material-grid">{materials.map((material) => <motion.button initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => onOpenMaterial(material)} className={`material-card ${material.owner}`} key={material.id}><span>{material.kind === 'practice-lab' ? 'PRACTICE ACTIVITY' : 'SOURCED LESSON'}</span><strong>{material.title}</strong><p>{material.summary}</p><small>{material.assessedLevel ? `${material.assessedLevel} · ` : ''}{material.sections.length} sections{material.sources?.length ? ` · ${material.sources.length} sources` : ''} <ArrowForwardRounded /></small></motion.button>)}</div>}
+        <div className="section-heading"><div><span>LESSON LIBRARY</span><h2>{materials.length ? 'Ready to learn' : 'No lessons yet'}</h2></div><div><button onClick={onUpload}><CloudUploadRounded /> Add documentation</button>{goal && <button className="primary-small" disabled={Boolean(activeAgent)} onClick={onCreateLesson}>{completedPlacement ? <AddRounded /> : <TrackChangesRounded />} {completedPlacement ? 'Create next lesson' : 'Take placement first'}</button>}</div></div>
+        {workspace.documents.length > 0 && <div className="knowledge-strip"><DescriptionRounded /><div><strong>{readyDocuments.length} uploaded {readyDocuments.length === 1 ? 'document' : 'documents'} ready{processingDocuments.length ? ` · ${processingDocuments.length} indexing` : ''}</strong><span>{workspace.documents.slice(0, 3).map((document) => document.name).join(' · ')}{workspace.documents.length > 3 ? ` · +${workspace.documents.length - 3} more` : ''}</span></div><button onClick={onDocuments}>Browse documents</button></div>}
+        {coveredTopics.length > 0 && <div className="topic-history"><span>COVERED SO FAR</span><div>{coveredTopics.map((topic) => <small key={topic}>{topic}</small>)}</div></div>}
+        {materials.length === 0 ? <div className="empty-materials"><span><AutoStoriesRounded /></span><h3>Create something you can learn from.</h3><p>{completedPlacement ? 'Choose the focus for your first lesson, or let AdaptLearn decide.' : 'Start with the placement check. Its result determines the difficulty and teaching style of every lesson for this goal.'}</p>{!goal && <button onClick={onAddGoal}>Add your first goal <ArrowForwardRounded /></button>}{goal && <div><button disabled={Boolean(activeAgent)} onClick={onCreateLesson}>{completedPlacement ? <AddRounded /> : <TrackChangesRounded />} {completedPlacement ? 'Create first lesson' : 'Take placement check'}</button><button disabled={Boolean(activeAgent)} onClick={() => onAgentAction('builder')}><BoltRounded /> Create practice activity</button></div>}</div> : <div className="material-grid">{materials.map((material) => <motion.button initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => onOpenMaterial(material)} className={`material-card ${material.owner}`} key={material.id}><span>{material.kind === 'practice-lab' ? 'PRACTICE ACTIVITY' : 'SOURCED LESSON'}</span><strong>{material.title}</strong><p>{material.summary}</p><small>{material.assessedLevel ? `${material.assessedLevel} · ` : ''}{material.sections.length} sections{material.sources?.length ? ` · ${material.sources.length} sources` : ''} <ArrowForwardRounded /></small></motion.button>)}</div>}
       </section>
 
       <section className="research-section">

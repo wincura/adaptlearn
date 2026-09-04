@@ -42,10 +42,14 @@ const document = await ingestDocument({
   mimetype: 'text/markdown',
   path: uploadPath,
   size: Buffer.byteLength(privateDocumentation),
-});
+}, { learnerId, goalId, visibility: 'goal' });
 await store.update(learnerId, (workspace) => { workspace.documents.push(document); });
 
-const retrieved = await loadRelevantDocumentContext([document], 'AcmeFlow workflow rules preview trigger actions');
+const retrieved = await loadRelevantDocumentContext(
+  [document],
+  'AcmeFlow workflow rules preview trigger actions',
+  { learnerId, goalId },
+);
 const placement = await createPlacement(store, learnerId, goalId);
 const placementWorkspace = await store.get(learnerId);
 const privatePlacement = placementWorkspace.assessments.find((item) => item.id === placement.id);

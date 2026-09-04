@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { LearningMaterial } from '../../../shared/contracts.ts';
-import { openAIChat, parseJsonObject } from '../../ai/openai-client.ts';
-import type { WorkspaceStore } from '../../memory/workspace-store.ts';
+import { aiChat, parseJsonObject } from '../../ai/provider.ts';
+import type { WorkspaceRepository } from '../../storage/workspace-repository.ts';
 import { builderAgent } from './agent.ts';
 
 const labSchema = z.object({
@@ -15,12 +15,12 @@ const labSchema = z.object({
   })).min(3).max(8),
 });
 
-export async function createBuilderLab(store: WorkspaceStore, learnerId: string, goalId: string): Promise<LearningMaterial> {
+export async function createBuilderLab(store: WorkspaceRepository, learnerId: string, goalId: string): Promise<LearningMaterial> {
   const workspace = await store.get(learnerId);
   const goal = workspace.goals.find((item) => item.id === goalId);
   if (!goal) throw new Error('Active learning goal not found.');
   const teacherMaterial = [...workspace.materials].reverse().find((item) => item.goalId === goalId && item.owner === 'teacher');
-  const raw = await openAIChat({
+  const raw = await aiChat({
     jsonMode: true,
     temperature: 0.25,
     messages: [

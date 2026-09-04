@@ -21,6 +21,14 @@ export type MaterialSection = {
   activities?: string[];
 };
 
+export type LessonQuizQuestion = {
+  id: string;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+};
+
 export type LearningSource = {
   title: string;
   origin: 'public-web' | 'uploaded-document';
@@ -32,10 +40,20 @@ export type KnowledgeDocument = {
   name: string;
   mimeType: string;
   size: number;
-  status: 'ready';
+  status: 'processing' | 'ready' | 'failed';
   characterCount: number;
   truncated: boolean;
   uploadedAt: string;
+  scope?: {
+    learnerId: string;
+    goalId?: string;
+    visibility: 'learner' | 'goal';
+  };
+  provider?: {
+    backend: string;
+    externalId?: string;
+    sourceUri?: string;
+  };
 };
 
 export type LearningMaterial = {
@@ -50,6 +68,8 @@ export type LearningMaterial = {
   topics?: string[];
   assessedLevel?: string;
   placementAssessmentId?: string;
+  diagnosticFocus?: string[];
+  quiz?: LessonQuizQuestion[];
   createdAt: string;
 };
 
@@ -69,6 +89,7 @@ export type ConversationTurn = {
   role: 'user' | 'assistant';
   text: string;
   agent: AgentId;
+  mode?: 'explainer-v1';
   createdAt: string;
 };
 
@@ -76,6 +97,19 @@ export type PlacementQuestion = {
   id: string;
   prompt: string;
   options: string[];
+  dimension?: string;
+  difficulty?: 'foundation' | 'basic' | 'applied' | 'advanced';
+};
+
+export type PlacementDiagnostics = {
+  strengths: string[];
+  focusAreas: string[];
+  dimensionScores: Array<{
+    dimension: string;
+    correct: number;
+    total: number;
+    percentage: number;
+  }>;
 };
 
 export type PlacementAssessment = {
@@ -86,12 +120,21 @@ export type PlacementAssessment = {
   submittedAnswers?: number[];
   score?: number;
   level?: string;
+  diagnostics?: PlacementDiagnostics;
   completedAt?: string;
   createdAt: string;
 };
 
 export type PublicPlacementAssessment = Omit<PlacementAssessment, 'questions'> & {
   questions: PlacementQuestion[];
+};
+
+export type PlacementResult = {
+  score: number;
+  level: string;
+  xpAwarded: number;
+  badgeAwarded?: string;
+  diagnostics: PlacementDiagnostics;
 };
 
 export type LearnerProgress = {
@@ -111,6 +154,17 @@ export type LearningWorkspace = {
   assessments: PlacementAssessment[];
   conversation: ConversationTurn[];
   progress: LearnerProgress;
+  updatedAt: string;
+};
+
+export type LearnerWorkspaceSummary = {
+  learnerId: string;
+  displayName: string;
+  background: string;
+  activeGoalTitle?: string;
+  goalCount: number;
+  xp: number;
+  level: string;
   updatedAt: string;
 };
 

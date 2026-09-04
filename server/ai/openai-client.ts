@@ -1,19 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-
-type OpenAIMessage = { role: 'system' | 'user' | 'assistant'; content: string };
-type OpenAIRequest = {
-  messages: OpenAIMessage[];
-  model?: string;
-  jsonMode?: boolean;
-  jsonSchema?: { name: string; schema: Record<string, unknown> };
-  builtInTools?: Array<'web_search' | 'code_interpreter'>;
-  requireTool?: boolean;
-  includeWebSources?: boolean;
-  maxOutputTokens?: number;
-  textVerbosity?: 'low' | 'medium' | 'high';
-  temperature?: number;
-};
+import { IncompleteAIResponseError, type AIProvider, type AIRequest, type AIResult } from './contracts.ts';
 
 type OpenAIConfig = { apiKey: string; model: string };
 
@@ -67,33 +54,29 @@ type ResponseOutput = {
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 };
 
-export type OpenAIWebSource = { title: string; url: string };
-export type OpenAIResult = { text: string; webSources: OpenAIWebSource[] };
-
-export class IncompleteOpenAIResponseError extends Error {
-  readonly reason: string;
-
-  constructor(reason: string) {
-    super(`OpenAI stopped before completing the response (${reason}).`);
-    this.name = 'IncompleteOpenAIResponseError';
-    this.reason = reason;
-  }
-}
-
-export async function openAIResponse(request: OpenAIRequest): Promise<OpenAIResult> {
+export async function openAIResponse(request: AIRequest): Promise<AIResult> {
   const config = await (configPromise ??= loadConfig());
+  const workloadModel = request.workload === 'assessment'
+    ? process.env.OPENAI_ASSESSOR_MODEL ?? 'gpt-5.4-nano'
+    : request.workload === 'research'
+    ? process.env.OPENAI_RESEARCH_MODEL ?? 'gpt-5.4-nano'
+    : request.workload === 'teacher'
+      ? process.env.OPENAI_TEACHER_MODEL ?? 'gpt-5.4-nano'
+      : undefined;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: request.model ?? config.model,
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+        model: request.model ?? workloadModel ?? config.model,
         input: request.messages,
         store: false,
         ...(request.jsonSchema ? {
@@ -107,8 +90,15 @@ export async function openAIResponse(request: OpenAIRequest): Promise<OpenAIResu
         ...(request.requireTool ? { tool_choice: 'required' } : {}),
         ...(request.includeWebSources ? { include: ['web_search_call.action.sources'] } : {}),
         ...(request.maxOutputTokens ? { max_output_tokens: request.maxOutputTokens } : {}),
-      }),
-    });
+        }),
+      });
+    } catch (error) {
+      const cause = (error as Error & { cause?: { code?: string; message?: string } }).cause;
+      if ((error as Error).name === 'AbortError') throw new Error('OpenAI did not respond within 60 seconds. Please try again.');
+      const detail = [cause?.code, cause?.message].filter(Boolean).join(': ');
+      console.error(`[AdaptLearn] OpenAI network failure${detail ? ` (${detail})` : ''}`);
+      throw new Error(`Could not reach OpenAI${cause?.code ? ` (${cause.code})` : ''}. Your key was loaded, but the network request failed.`);
+    }
     const data = await response.json() as ResponseOutput;
     if (!response.ok) {
       throw new Error(`OpenAI request failed (${response.status}): ${data.error?.message ?? 'Unknown API error'}`);
@@ -116,7 +106,7 @@ export async function openAIResponse(request: OpenAIRequest): Promise<OpenAIResu
     if (data.status === 'incomplete') {
       const reason = data.incomplete_details?.reason ?? 'unknown reason';
       console.warn(`[AdaptLearn] OpenAI response incomplete: reason=${reason}, outputTokens=${data.usage?.output_tokens ?? 'unknown'}`);
-      throw new IncompleteOpenAIResponseError(reason);
+      throw new IncompleteAIResponseError(reason);
     }
     if (data.status === 'failed') throw new Error(`OpenAI could not complete the response: ${data.error?.message ?? 'Unknown API error'}`);
     const content = data.output_text?.trim() ?? data.output
@@ -137,9 +127,15 @@ export async function openAIResponse(request: OpenAIRequest): Promise<OpenAIResu
   }
 }
 
-export async function openAIChat(request: OpenAIRequest): Promise<string> {
+export async function openAIChat(request: AIRequest): Promise<string> {
   return (await openAIResponse(request)).text;
 }
+
+export const openAIProvider: AIProvider = {
+  id: 'openai',
+  isConfigured: openAIIsConfigured,
+  respond: openAIResponse,
+};
 
 export function parseJsonObject<T>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];

@@ -41,9 +41,16 @@ server/
     catalog.ts                     Routing registry
   orchestration/run-turn.ts        Coordinator → specialist execution
   memory/workspace-store.ts        Durable local workspace repository
-  knowledge/document-store.ts      Document extraction and relevant-excerpt retrieval
-  ai/openai-client.ts              Credential loading and OpenAI Responses transport
-  index.ts                         Express HTTP boundary
+  storage/workspace-repository.ts  Provider-neutral learner-memory contract
+  knowledge/contracts.ts           Provider-neutral ingestion/retrieval contract
+  knowledge/document-store.ts      Local extraction and ranked passage retrieval
+  knowledge/rag.ts                 Retrieved-passage context formatting
+  ai/contracts.ts                  Provider-neutral model contract
+  ai/provider.ts                   Model provider registry
+  ai/openai-client.ts              OpenAI Responses adapter
+  runtime/providers.ts             Storage and knowledge composition root
+  app.ts                           Injectable Express application factory
+  index.ts                         Local process listener only
 shared/contracts.ts                Shared domain contracts
 ```
 
@@ -51,7 +58,7 @@ shared/contracts.ts                Shared domain contracts
 
 `data/workspace.json` is the authoritative local workspace. It holds learner context, goals, document metadata, conversations, agent outputs, placement evidence, and progress. Uploaded originals are stored in `data/uploads`; locally extracted text is stored in `data/knowledge`. Neither is returned to the browser. The browser does not use local storage as authoritative memory.
 
-The store is deliberately behind `WorkspaceStore`. For AWS migration, implement the same repository behavior with S3 for the requested architecture. If the product later needs many concurrent partial updates or queries, use DynamoDB for structured memory and reserve S3 for documents and generated artifacts.
+The store implements `WorkspaceRepository`. Goals are durable records and exactly one is active at a time; switching goals changes the working context without discarding another goal's lessons, placement evidence, or topic history. For AWS migration, implement the same repository behavior with S3 and protect updates with object ETags and conditional writes. If the product later needs many concurrent partial updates or queries, preserve the contract and use DynamoDB for structured memory while reserving S3 for documents and generated artifacts.
 
 ## OpenAI and tools
 
@@ -60,7 +67,7 @@ The store is deliberately behind `WorkspaceStore`. For AWS migration, implement 
 - Every Teacher lesson requires a web-search call and at least two public source URLs. Relevant excerpts from uploaded documentation are included when applicable and are labeled separately from public sources.
 - Lesson generation is stateful per goal. Research receives previous lesson titles and canonical covered topics; each new lesson persists its own topics, assessed level, and placement-assessment identifier.
 - A completed placement for the same goal is a prerequisite for lesson generation. Retaking placement changes the adaptation input for future lessons while existing lessons retain their original linkage.
-- Uploaded-document text is treated as untrusted reference data, never as instructions. Extraction and lexical chunk ranking happen locally; selected excerpts are then sent to OpenAI for lesson creation.
+- Uploaded-document text is treated as untrusted reference data, never as instructions. `KnowledgeRepository.retrieve()` returns structured, scored passages with provenance and learner/goal scope metadata. The local adapter uses lexical chunk ranking; selected excerpts are then sent to the active AI provider for lesson creation.
 - The key is read at runtime, never returned by an endpoint, and the entire `keys/` folder is git-ignored.
 - Agent prompts state ownership limits and prohibit claims about actions without tool evidence.
 
@@ -69,10 +76,10 @@ The store is deliberately behind `WorkspaceStore`. For AWS migration, implement 
 | Local | AWS-ready replacement |
 |---|---|
 | Express process | Lambda adapter behind API Gateway |
-| `WorkspaceStore` JSON file | S3 implementation; DynamoDB if write concurrency grows |
-| `data/uploads` and `data/knowledge` | S3 objects plus metadata and lifecycle rules; replace lexical retrieval with Bedrock Knowledge Bases if needed |
-| Direct OpenAI client | Bedrock model adapter and AgentCore runtime |
+| `WorkspaceRepository` → local JSON | S3 repository with conditional ETag writes; DynamoDB if write concurrency grows |
+| `KnowledgeRepository` → local files | S3 ingestion plus Bedrock Knowledge Bases `Retrieve`, metadata filtering, and optional reranking |
+| `AIProvider` → OpenAI adapter | Bedrock model adapter |
 | In-process orchestration | Step Functions or AgentCore workflow |
 | Startup research call | EventBridge-triggered refresh plus on-demand endpoint |
 
-The current implementation stays local, as requested. No AWS resources are provisioned.
+The current implementation stays local, as requested. No AWS resources or SDK dependencies are provisioned. See [aws-migration.md](aws-migration.md) for the adapter blueprint, RAG metadata model, and migration sequence.
