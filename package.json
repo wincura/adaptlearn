@@ -11,10 +11,13 @@
     "dev:all": "concurrently -n web,api -c green,blue \"vinext dev\" \"node --experimental-strip-types --watch server/index.ts\"",
     "build": "vinext build",
     "typecheck": "tsc --noEmit",
+    "test:sandbox": "node --experimental-strip-types scripts/test-sandbox.ts",
+    "test:api": "node --experimental-strip-types scripts/test-api-sandbox.ts",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
+    "@e2b/code-interpreter": "^2.7.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.3.1",

@@ -5,6 +5,8 @@ import { aiResponse, IncompleteAIResponseError, parseJsonObject, type AIResult }
 import type { KnowledgeRepository } from '../../knowledge/contracts.ts';
 import { localKnowledgeRepository } from '../../knowledge/document-store.ts';
 import { formatRetrievedContext } from '../../knowledge/rag.ts';
+import { generateCodingChallenge } from '../../sandbox/code-evaluator.ts';
+import { detectCodeTopic } from '../../sandbox/topic-detector.ts';
 import type { WorkspaceRepository } from '../../storage/workspace-repository.ts';
 import { teacherAgent } from './agent.ts';
 
@@ -191,6 +193,22 @@ export async function createTeacherMaterial(
   const sources = [...uploadedSources, ...verifiedPublicSources].filter((source, index, all) => (
     all.findIndex((candidate) => candidate.title === source.title && candidate.url === source.url) === index
   ));
+  const detected = detectCodeTopic(concreteLessonTitle(content.title), goal.title, goal.motivation);
+  let codingChallenge: import('../../../shared/contracts.ts').CodingChallenge | undefined;
+  if (detected.isCodeTopic && detected.language) {
+    try {
+      codingChallenge = await generateCodingChallenge(
+        goal,
+        concreteLessonTitle(content.title),
+        content.topics[0] ?? concreteLessonTitle(content.title),
+        detected.language,
+        assessedLevel,
+      );
+    } catch (err) {
+      console.warn(`[AdaptLearn] Optional coding challenge generation skipped: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const material: LearningMaterial = {
     id: crypto.randomUUID(),
     goalId,
@@ -205,6 +223,8 @@ export async function createTeacherMaterial(
     sections: content.sections,
     quiz: content.quiz.map((question) => ({ ...question, id: crypto.randomUUID() })),
     sources,
+    codingChallenge,
+    isCodeTopic: detected.isCodeTopic,
     createdAt: new Date().toISOString(),
   };
   await store.update(learnerId, (current) => { current.materials.push(material); });

@@ -56,6 +56,46 @@ export type KnowledgeDocument = {
   };
 };
 
+export type SupportedCodeLanguage = 'python' | 'javascript' | 'typescript' | 'sql' | 'cpp' | 'java';
+
+export type CodingTestCase = {
+  id: string;
+  description: string;
+  input?: string;
+  expectedOutput?: string;
+  isHidden?: boolean;
+};
+
+export type CodingChallenge = {
+  id: string;
+  language: SupportedCodeLanguage;
+  title: string;
+  prompt: string;
+  starterCode: string;
+  testHarness: string;
+  testCases?: CodingTestCase[];
+  hints?: string[];
+};
+
+export type ExecutionStatus = 'passed' | 'failed' | 'compile_error' | 'runtime_error' | 'timeout';
+
+export type ExecutionResult = {
+  status: ExecutionStatus;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  durationMs: number;
+  testResults?: Array<{ name: string; passed: boolean; error?: string }>;
+};
+
+export type CodeEvaluationResponse = {
+  passed: boolean;
+  status: ExecutionStatus;
+  feedback: string;
+  execution: ExecutionResult;
+  xpAwarded?: number;
+};
+
 export type LearningMaterial = {
   id: string;
   goalId: string;
@@ -70,6 +110,8 @@ export type LearningMaterial = {
   placementAssessmentId?: string;
   diagnosticFocus?: string[];
   quiz?: LessonQuizQuestion[];
+  codingChallenge?: CodingChallenge;
+  isCodeTopic?: boolean;
   createdAt: string;
 };
 

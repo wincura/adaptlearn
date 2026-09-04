@@ -14,12 +14,16 @@ import { createTeacherMaterial } from './agents/teacher/create-material.ts';
 import { aiIsConfigured, aiProviderId } from './ai/provider.ts';
 import type { KnowledgeRepository } from './knowledge/contracts.ts';
 import { runTurn } from './orchestration/run-turn.ts';
-import { createKnowledgeRepository, createWorkspaceRepository } from './runtime/providers.ts';
+import { createKnowledgeRepository, createSandboxExecutor, createWorkspaceRepository } from './runtime/providers.ts';
+import { evaluateCodeSubmission, generateCodingChallenge } from './sandbox/code-evaluator.ts';
+import type { SandboxExecutor } from './sandbox/contracts.ts';
+import { detectCodeTopic } from './sandbox/topic-detector.ts';
 import type { WorkspaceRepository } from './storage/workspace-repository.ts';
 
 export type AppDependencies = {
   workspaceRepository?: WorkspaceRepository;
   knowledgeRepository?: KnowledgeRepository;
+  sandboxExecutor?: SandboxExecutor;
 };
 
 const learnerIdSchema = z.string().trim().min(1).max(100);
@@ -47,6 +51,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
   const store = dependencies.workspaceRepository ?? createWorkspaceRepository();
   const knowledge = dependencies.knowledgeRepository ?? createKnowledgeRepository();
+  const sandbox = dependencies.sandboxExecutor ?? createSandboxExecutor();
   const upload = multer({
     dest: process.env.UPLOAD_DIRECTORY ?? path.resolve(process.cwd(), 'data', 'uploads'),
     limits: { fileSize: 25 * 1024 * 1024 },
@@ -59,6 +64,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     status: 'ok',
     storage: store.backend,
     knowledge: knowledge.backend,
+    sandbox: sandbox.id,
     ai: aiProviderId(),
     aiConfigured: await aiIsConfigured(),
   }));
@@ -253,6 +259,90 @@ export function createApp(dependencies: AppDependencies = {}) {
       current.documents = current.documents.filter((item) => item.id !== documentId);
     });
     return response.json(publicWorkspace(updated));
+  });
+
+  app.post('/api/sandbox/run', async (request, response) => {
+    const input = z.object({
+      language: z.enum(['python', 'javascript', 'typescript', 'sql', 'cpp', 'java']),
+      code: z.string().max(30000),
+      harness: z.string().max(20000).optional(),
+    }).parse(request.body);
+
+    const result = await sandbox.execute({
+      language: input.language,
+      code: input.code,
+      harness: input.harness,
+    });
+    response.json(result);
+  });
+
+  app.post('/api/sandbox/evaluate', async (request, response) => {
+    const input = z.object({
+      learnerId: learnerIdSchema.optional(),
+      goalId: z.string().uuid().optional(),
+      challenge: z.object({
+        id: z.string(),
+        language: z.enum(['python', 'javascript', 'typescript', 'sql', 'cpp', 'java']),
+        title: z.string(),
+        prompt: z.string(),
+        starterCode: z.string(),
+        testHarness: z.string(),
+        hints: z.array(z.string()).optional(),
+      }),
+      studentCode: z.string().max(30000),
+    }).parse(request.body);
+
+    const evaluation = await evaluateCodeSubmission(input.challenge, input.studentCode, sandbox);
+    let updatedWorkspace: LearningWorkspace | undefined;
+
+    if (input.learnerId && evaluation.passed && evaluation.xpAwarded) {
+      updatedWorkspace = await store.update(input.learnerId, (current) => {
+        current.progress.xp += evaluation.xpAwarded ?? 25;
+      });
+    }
+
+    response.json({
+      evaluation,
+      workspace: updatedWorkspace ? publicWorkspace(updatedWorkspace) : undefined,
+    });
+  });
+
+  app.post('/api/materials/:materialId/coding-challenge', async (request, response) => {
+    const input = z.object({ learnerId: learnerIdSchema }).parse(request.body);
+    const materialId = z.string().uuid().parse(request.params.materialId);
+    const workspace = await store.get(input.learnerId);
+    const material = workspace.materials.find((item) => item.id === materialId);
+    if (!material) return response.status(404).json({ error: 'Material not found.' });
+
+    const goal = workspace.goals.find((g) => g.id === material.goalId);
+    if (!goal) return response.status(404).json({ error: 'Goal not found.' });
+
+    if (material.codingChallenge) {
+      return response.json({ challenge: material.codingChallenge });
+    }
+
+    const detected = detectCodeTopic(material.title, goal.title, goal.motivation);
+    if (!detected.isCodeTopic || !detected.language) {
+      return response.status(400).json({ error: 'This topic does not require code execution.' });
+    }
+
+    const challenge = await generateCodingChallenge(
+      goal,
+      material.title,
+      material.topics?.[0] ?? material.title,
+      detected.language,
+      material.assessedLevel ?? 'Beginner',
+    );
+
+    const updated = await store.update(input.learnerId, (current) => {
+      const item = current.materials.find((m) => m.id === materialId);
+      if (item) {
+        item.codingChallenge = challenge;
+        item.isCodeTopic = true;
+      }
+    });
+
+    response.status(201).json({ challenge, workspace: publicWorkspace(updated) });
   });
 
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

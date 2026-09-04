@@ -1,11 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { ArrowForwardRounded, CheckRounded, CloseRounded, DeleteOutlineRounded, DescriptionRounded, PersonAddRounded, QuizRounded, ReplayRounded } from '@mui/icons-material';
+import { FormEvent, useEffect, useState } from 'react';
+import { ArrowForwardRounded, CheckRounded, CloseRounded, CodeRounded, DeleteOutlineRounded, DescriptionRounded, PersonAddRounded, QuizRounded, ReplayRounded } from '@mui/icons-material';
 import { Dialog, DialogContent, IconButton, LinearProgress } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { api } from '../../lib/api';
 import type { KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningMaterial, LearningWorkspace, LessonQuizQuestion, PlacementResult, PublicPlacementAssessment } from '../../shared/contracts';
+import { CodeSandbox } from './CodeSandbox';
 
 export type GoalInput = { title: string; motivation: string; targetOutcome: string; background: string; preferences: string };
 
@@ -103,9 +105,30 @@ function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
   return <section className="lesson-quiz"><div className="quiz-heading"><span><QuizRounded /></span><div><small>KNOWLEDGE CHECK</small><h3>Test what you learned</h3><p>Choose one answer for each question. Corrections appear after you check your answers.</p></div></div>{submitted && <div className="quiz-score"><strong>{correct}/{questions.length} correct</strong><span>{Math.round((correct / questions.length) * 100)}%</span></div>}<div className="quiz-questions">{questions.map((question, questionIndex) => <article key={question.id}><small>QUESTION {questionIndex + 1}</small><h4>{question.prompt}</h4><div>{question.options.map((option, optionIndex) => { const selected = answers[questionIndex] === optionIndex; const correctOption = optionIndex === question.correctIndex; const state = submitted ? correctOption ? 'correct' : selected ? 'incorrect' : '' : selected ? 'selected' : ''; return <button type="button" aria-pressed={selected} disabled={submitted} className={state} onClick={() => choose(questionIndex, optionIndex)} key={`${option}-${optionIndex}`}><span>{String.fromCharCode(65 + optionIndex)}</span>{option}{submitted && correctOption && <CheckRounded />}</button>; })}</div>{submitted && <div className={answers[questionIndex] === question.correctIndex ? 'quiz-feedback correct' : 'quiz-feedback incorrect'}><strong>{answers[questionIndex] === question.correctIndex ? 'Correct.' : `Correction: ${question.options[question.correctIndex]}`}</strong><p>{question.explanation}</p></div>}</article>)}</div><div className="quiz-actions">{submitted ? <button type="button" onClick={retry}><ReplayRounded /> Try again</button> : <button type="button" disabled={answered !== questions.length} onClick={() => setSubmitted(true)}>Check my answers <ArrowForwardRounded /></button>}<span>{answered}/{questions.length} answered</span></div></section>;
 }
 
-export function MaterialDialog({ material, onClose }: { material?: LearningMaterial; onClose: () => void }) {
+export function MaterialDialog({ material: initialMaterial, learnerId, onClose, onWorkspaceUpdated }: { material?: LearningMaterial; learnerId?: string; onClose: () => void; onWorkspaceUpdated?: (workspace: LearningWorkspace) => void }) {
+  const [material, setMaterial] = useState<LearningMaterial | undefined>(initialMaterial);
+  const [generatingChallenge, setGeneratingChallenge] = useState(false);
+
+  useEffect(() => {
+    setMaterial(initialMaterial);
+  }, [initialMaterial]);
+
+  const handleGenerateChallenge = async () => {
+    if (!material || !learnerId) return;
+    setGeneratingChallenge(true);
+    try {
+      const res = await api.generateCodingChallenge(learnerId, material.id);
+      setMaterial({ ...material, codingChallenge: res.challenge, isCodeTopic: true });
+      if (onWorkspaceUpdated) onWorkspaceUpdated(res.workspace);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not generate coding challenge.');
+    } finally {
+      setGeneratingChallenge(false);
+    }
+  };
+
   const label = material?.kind === 'practice-lab' ? 'PRACTICE ACTIVITY' : 'SOURCED LESSON';
-  return <Dialog open={Boolean(material)} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { className: 'studio-dialog material-dialog' } }}><IconButton className="dialog-close" onClick={onClose}><CloseRounded /></IconButton>{material && <DialogContent><span className="dialog-kicker">{label}</span><h2>{material.title}</h2><p>{material.summary}</p>{material.kind === 'lesson' && (material.assessedLevel || material.topics?.length) && <div className="lesson-state"><div><span>ADAPTED LEVEL</span><strong>{material.assessedLevel ?? 'Legacy lesson'}</strong>{material.diagnosticFocus?.length ? <small>Extra support: {material.diagnosticFocus.join(' · ')}</small> : null}</div>{material.topics && <div><span>TOPICS COVERED</span><p>{material.topics.join(' · ')}</p></div>}</div>}<div className="material-sections">{material.sections.map((section, index) => <section key={`${section.title}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{section.title}</h3><div className="lesson-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noreferrer">{children}</a> }}>{section.content}</ReactMarkdown></div>{material.kind === 'practice-lab' && section.activities && section.activities.length > 0 && <div className="lesson-activities"><strong>Activities</strong><ul>{section.activities.map((activity) => <li key={activity}>{activity}</li>)}</ul></div>}</div></section>)}</div>{material.quiz?.length ? <LessonQuiz key={material.id} questions={material.quiz} /> : null}{material.sources && material.sources.length > 0 && <section className="lesson-sources"><span>SOURCES USED</span><h3>Where this lesson came from</h3><div>{material.sources.map((source, index) => <article key={`${source.title}-${index}`}><small>{source.origin === 'uploaded-document' ? 'YOUR UPLOADED DOCUMENT' : 'PUBLIC WEB'}</small>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}</article>)}</div></section>}</DialogContent>}</Dialog>;
+  return <Dialog open={Boolean(material)} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { className: 'studio-dialog material-dialog' } }}><IconButton className="dialog-close" onClick={onClose}><CloseRounded /></IconButton>{material && <DialogContent><span className="dialog-kicker">{label}</span><h2>{material.title}</h2><p>{material.summary}</p>{material.kind === 'lesson' && (material.assessedLevel || material.topics?.length) && <div className="lesson-state"><div><span>ADAPTED LEVEL</span><strong>{material.assessedLevel ?? 'Legacy lesson'}</strong>{material.diagnosticFocus?.length ? <small>Extra support: {material.diagnosticFocus.join(' · ')}</small> : null}</div>{material.topics && <div><span>TOPICS COVERED</span><p>{material.topics.join(' · ')}</p></div>}</div>}<div className="material-sections">{material.sections.map((section, index) => <section key={`${section.title}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{section.title}</h3><div className="lesson-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noreferrer">{children}</a> }}>{section.content}</ReactMarkdown></div>{material.kind === 'practice-lab' && section.activities && section.activities.length > 0 && <div className="lesson-activities"><strong>Activities</strong><ul>{section.activities.map((activity) => <li key={activity}>{activity}</li>)}</ul></div>}</div></section>)}</div>{material.codingChallenge ? <CodeSandbox challenge={material.codingChallenge} learnerId={learnerId} goalId={material.goalId} onCompleted={(_, ws) => ws && onWorkspaceUpdated?.(ws)} /> : material.isCodeTopic && learnerId ? <div className="generate-challenge-banner"><div><span className="sandbox-badge"><CodeRounded fontSize="inherit" /> PRACTICAL CODING CHALLENGE</span><h3 style={{ margin: '6px 0 2px', fontSize: 17, color: '#f3f7f5' }}>Hands-on Execution Test</h3><p style={{ margin: 0, fontSize: 13.5, color: '#9cb3aa' }}>Practice what you learned with an executable coding exercise evaluated by your Socratic AI Tutor.</p></div><button type="button" className="dialog-primary" disabled={generatingChallenge} onClick={handleGenerateChallenge} style={{ whiteSpace: 'nowrap' }}><CodeRounded /> {generatingChallenge ? 'Generating test…' : 'Generate Coding Test'}</button></div> : null}{material.quiz?.length ? <LessonQuiz key={material.id} questions={material.quiz} /> : null}{material.sources && material.sources.length > 0 && <section className="lesson-sources"><span>SOURCES USED</span><h3>Where this lesson came from</h3><div>{material.sources.map((source, index) => <article key={`${source.title}-${index}`}><small>{source.origin === 'uploaded-document' ? 'YOUR UPLOADED DOCUMENT' : 'PUBLIC WEB'}</small>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}</article>)}</div></section>}</DialogContent>}</Dialog>;
 }
 
 export function PlacementDialog({ assessment, busy, result, onClose, onSubmit }: { assessment?: PublicPlacementAssessment; busy: boolean; result?: PlacementResult; onClose: () => void; onSubmit: (answers: number[]) => Promise<void> }) {

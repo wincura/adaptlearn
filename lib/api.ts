@@ -39,4 +39,11 @@ export const api = {
     return request<{ document: KnowledgeDocument; workspace: LearningWorkspace }>('/api/documents', { method: 'POST', body: form });
   },
   deleteDocument: (learnerId: string, documentId: string) => request<LearningWorkspace>(`/api/workspace/${learnerId}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
+  runCode: (language: import('../shared/contracts').SupportedCodeLanguage, code: string, harness?: string) =>
+    request<import('../shared/contracts').ExecutionResult>('/api/sandbox/run', json({ language, code, harness })),
+  evaluateCode: (challenge: import('../shared/contracts').CodingChallenge, studentCode: string, learnerId?: string, goalId?: string) =>
+    request<{ evaluation: import('../shared/contracts').CodeEvaluationResponse; workspace?: LearningWorkspace }>('/api/sandbox/evaluate', json({ challenge, studentCode, learnerId, goalId })),
+  generateCodingChallenge: (learnerId: string, materialId: string) =>
+    request<{ challenge: import('../shared/contracts').CodingChallenge; workspace: LearningWorkspace }>(`/api/materials/${materialId}/coding-challenge`, json({ learnerId })),
 };
+
