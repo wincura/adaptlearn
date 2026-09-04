@@ -76,6 +76,7 @@ export type LearningMaterial = {
 export type ResearchSuggestion = {
   id: string;
   goalId: string;
+  purpose?: 'update' | 'refresh' | 'next-topic';
   title: string;
   summary: string;
   whyRelevant: string;

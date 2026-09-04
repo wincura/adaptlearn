@@ -28,7 +28,7 @@ The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` 
 - Placement-gated lessons use both the overall level and dimension-level strengths and focus areas to shape future content
 - PDF, DOCX, TXT, Markdown, and CSV documentation ingestion with local text extraction, a document browser, deletion, and structured relevant-passage retrieval for proprietary tools
 - Builder-generated practical-lab specifications based on the learner's goal and available Teacher context
-- Manual “What’s new?” searches using OpenAI's web-search tool, optional suggestions with sources, and explicit learner approval before a suggestion becomes material; opening or switching a goal never starts this search
+- Manual “What’s new?” searches using OpenAI's web-search tool: technical and software goals receive relevant feature/change alerts or uncovered topics, while human-language and stable-skill goals receive need-based refreshers or next topics rather than generic product or exam news; every suggestion remains optional until explicitly approved
 
 ## Agent boundaries
 

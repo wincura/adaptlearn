@@ -96,7 +96,7 @@ export function LearningStudio() {
     try {
       const result = await api.research(learnerId, activeGoal.id);
       applyWorkspace(result.workspace);
-      setToast(result.workspace.suggestions.length ? 'Fresh suggestions are ready.' : 'No material updates were useful enough to suggest.');
+      setToast(result.workspace.suggestions.length ? 'Useful updates or refreshers are ready.' : 'No update or refresher was useful enough to suggest.');
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'The update search could not be completed.');
     } finally { setActiveAgent(undefined); }

@@ -12,7 +12,7 @@ The workspace starts empty. No generic Python, French, Excel, SQL, or other cour
 | Teacher | Web-researched lessons, per-goal topic continuity, placement-adapted explanations, uploaded-document synthesis, quizzes, exercises, hands-on activity briefs | Level decisions, final assessment scores, XP, infrastructure |
 | Builder | Practice-lab specifications, starter states/files, simulated environments, expected results and reset paths | Curriculum priorities, grading, learner memory |
 | Assessor | Placement and mastery checks, rubrics, level decisions, XP and badges | Teaching answers during a test, lesson authoring, web research |
-| Researcher | Current web research, official-source discovery, freshness, optional suggestions | Adding curriculum without consent, writing final lessons, grading |
+| Researcher | Relevant technical updates, need-based refreshers, goal-aligned next topics, official-source discovery, optional suggestions | Generic news, adding curriculum without consent, writing final lessons, grading |
 
 The Coordinator always reads the current workspace and selects a specialist. A specialist response is stored with its actual agent identity. Buttons for material generation call the owning specialist directly through Coordinator-controlled endpoints. Agent identities, routing, and ownership traces are internal architecture and are not displayed to learners.
 
