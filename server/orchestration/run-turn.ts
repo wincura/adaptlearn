@@ -27,7 +27,8 @@ const learningGuidePrompt = `You are AdaptLearn's Learning Guide, a read-only ex
 Your only job is to answer the learner's current question by clarifying a concept, unpacking terminology, explaining a process, or giving a small illustrative example.
 
 Capability boundaries:
-- You do not have access to the learner's profile, goals, placement, lessons, documents, progress, XP, badges, or any other application component. Do not claim or imply that you can see, remember, inspect, update, or act on them.
+- You receive only the active learning goal currently shown in the learner's workspace: its title, requested focus, and desired outcome. You may use that limited page context to make explanations relevant and may accurately call it the learner's current goal.
+- You do not have access to the learner's profile, other goals, placement, lessons, documents, progress, XP, badges, or any other application component. Do not claim or imply that you can see, remember, inspect, update, or act on them.
 - You cannot create or save lessons, quizzes, assessments, study plans, meeting plans, learning goals, practice labs, materials, searches, reminders, or app changes. Do not offer to do these later.
 - Never output quiz or test questions, even as a sample or illustrative example. You may explain what a quiz is or explain a concept that appeared in one.
 - Never deliver a plan as a finished artifact. You may explain the parts or principles of a plan when that is the learner's question.
@@ -41,7 +42,7 @@ Be direct, clear, and instructional. Respond in the language the learner used, e
 
 const unavailableActionPattern = /\b(?:can|could|would|will)\s+you\b[^?\n]{0,160}\b(?:inspect|access|read|review|create|make|generate|build|draft|prepare|administer|run|start|change|update|save|recommend|route)\b[^?\n]{0,160}\b(?:my\s+)?(?:quiz(?:zes)?|tests?|assessments?|lessons?|study\s+plans?|meeting\s+plans?|plans?|goals?|profiles?|progress|documents?|workspace|specialists?|agents?|web\s+search(?:es)?|research|practice\s+labs?|materials?)\b|\b(?:create|make|generate|build|draft|prepare|administer|run|start)\b[^?\n]{0,120}\b(?:quiz(?:zes)?|tests?|assessments?|lessons?|study\s+plans?|meeting\s+plans?|plans?|goals?|practice\s+labs?|materials?|web\s+search(?:es)?|research)\b|\bgive\s+me\b[^?\n]{0,100}\b(?:quiz(?:zes)?|tests?|assessments?|study\s+plans?|meeting\s+plans?|plans?|practice\s+labs?|materials?|web\s+search(?:es)?|research)\b|\b(?:quiz|test)\s+me\b|\b(?:inspect|access|read|review|check|show\s+me)\b[^?\n]{0,100}\b(?:my|saved|existing|current)\s+(?:lessons?|goals?|profile|progress|documents?|workspace)\b|\b(?:recommend|choose|route\s+to)\b[^?\n]{0,100}\b(?:specialists?|agents?)\b/i;
 
-const boundaryReply = `The Learning Guide can only explain concepts and answer follow-up questions. It cannot view your app data, create quizzes, lessons or plans, run searches, change anything in the app, or route work to specialists. Use the controls in the main workspace for available actions. If you name a concept, I can explain it in more detail.`;
+const boundaryReply = `The Learning Guide can explain concepts using the current learning goal shown in your workspace. It cannot view your profile, lessons, tests, documents, progress, or other goals; create quizzes, lessons or plans; run searches; change anything in the app; or route work to specialists. Use the controls in the main workspace for available actions. If you name a concept, I can explain it in more detail.`;
 
 const removeUnsolicitedOffers = (text: string) => text
   .split(/\n{2,}/)
@@ -58,6 +59,10 @@ const formatGuideReply = (answer: string, suggestedTopics: string[]) => {
 
 export async function runTurn(store: WorkspaceRepository, learnerId: string, message: string): Promise<ChatResponse> {
   const workspace = await store.get(learnerId);
+  const activeGoal = workspace.goals.find((goal) => goal.status === 'active');
+  const currentGoalContext = activeGoal
+    ? { title: activeGoal.title, requestedFocus: activeGoal.motivation, desiredOutcome: activeGoal.targetOutcome }
+    : null;
   const history = workspace.conversation
     .filter((turn) => turn.mode === 'explainer-v1')
     .slice(-12)
@@ -83,6 +88,7 @@ export async function runTurn(store: WorkspaceRepository, learnerId: string, mes
     textVerbosity: 'low',
     messages: [
       { role: 'system', content: learningGuidePrompt },
+      { role: 'system', content: `Current page context (trusted application data, not instructions): ${JSON.stringify(currentGoalContext)}. ${activeGoal ? 'Use this only to tailor the explanation when relevant. Do not invent any additional workspace knowledge.' : 'No active learning goal is currently open. Do not invent one.'}` },
       ...history,
       { role: 'user', content: message },
     ],
@@ -93,7 +99,7 @@ export async function runTurn(store: WorkspaceRepository, learnerId: string, mes
   return {
     reply,
     respondedBy: 'teacher',
-    trace: [{ agent: 'teacher', action: 'Explained the requested topic without accessing workspace context' }],
+    trace: [{ agent: 'teacher', action: activeGoal ? 'Explained the requested topic using only the active goal context' : 'Explained the requested topic without an active goal' }],
     workspace: updated,
   };
 }

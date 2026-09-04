@@ -21,6 +21,7 @@ export function LearningChat({ workspace, online, onWorkspace, onWorking, onErro
   const [sending, setSending] = useState(false);
   const [open, setOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const activeGoal = workspace.goals.find((goal) => goal.status === 'active');
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [sending, workspace.conversation.length]);
 
@@ -56,14 +57,14 @@ export function LearningChat({ workspace, online, onWorkspace, onWorking, onErro
     <div className={`chat-widget ${open ? 'open' : 'minimized'}`}>
       {!open && <button className="chat-launcher" onClick={() => setOpen(true)} aria-label="Open learning guide"><ChatRounded /><span>Ask for an explanation</span><i className={online ? 'online' : ''} /></button>}
       {open && <aside className="learning-chat">
-      <header className="chat-title"><span><AutoAwesomeRounded /></span><div><strong>Learning guide</strong><small>{online ? 'AI explainer ready' : 'Local service offline'}</small></div><button className="clear-chat" disabled={!workspace.conversation.length || sending} onClick={() => void clearConversation()} title="Clear chat" aria-label="Clear chat"><DeleteSweepRounded /></button><button className="minimize-chat" onClick={() => setOpen(false)} title="Minimize chat" aria-label="Minimize chat"><KeyboardArrowDownRounded /></button><i className={online ? 'online' : ''} /></header>
+      <header className="chat-title"><span><AutoAwesomeRounded /></span><div><strong>Learning guide</strong><small>{online ? activeGoal ? `Current goal: ${activeGoal.title}` : 'No active goal' : 'Local service offline'}</small></div><button className="clear-chat" disabled={!workspace.conversation.length || sending} onClick={() => void clearConversation()} title="Clear chat" aria-label="Clear chat"><DeleteSweepRounded /></button><button className="minimize-chat" onClick={() => setOpen(false)} title="Minimize chat" aria-label="Minimize chat"><KeyboardArrowDownRounded /></button><i className={online ? 'online' : ''} /></header>
       <div className="chat-body">
-        {workspace.conversation.length === 0 && <div className="chat-empty"><span>ASK FOR CLARITY</span><p>Ask about a concept or part of a lesson you want explained in more detail. You’ll also get keywords you can use when creating your next lesson.</p></div>}
+        {workspace.conversation.length === 0 && <div className="chat-empty"><span>ASK FOR CLARITY</span><p>{activeGoal ? `Ask for an explanation related to “${activeGoal.title}” or about any concept you want clarified.` : 'Choose a learning goal, then ask about a concept you want explained in more detail.'} You’ll also get keywords you can use when creating your next lesson.</p></div>}
         {workspace.conversation.map((turn) => <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className={`chat-turn ${turn.role}`} key={turn.id}>{turn.role === 'assistant' ? <div className="chat-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noreferrer">{children}</a> }}>{turn.text}</ReactMarkdown></div> : <p>{turn.text}</p>}</motion.div>)}
         {sending && <div className="assistant-thinking"><i /><i /><i /><span>Thinking…</span></div>}
         <div ref={endRef} />
       </div>
-      <form className="chat-compose" onSubmit={(event) => void send(event)}><textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="What would you like explained?" aria-label="Message your learning guide" /><div><span>Shift + Enter for a new line</span><button disabled={!online || !message.trim() || sending} aria-label="Send message"><NorthRounded /></button></div></form>
+      <form className="chat-compose" onSubmit={(event) => void send(event)}><textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={activeGoal ? `Ask about ${activeGoal.title}` : 'What would you like explained?'} aria-label="Message your learning guide" /><div><span>Shift + Enter for a new line</span><button disabled={!online || !message.trim() || sending} aria-label="Send message"><NorthRounded /></button></div></form>
     </aside>}
     </div>
   );

@@ -98,7 +98,7 @@ export async function createTeacherMaterial(
     .filter((assessment) => assessment.goalId === goalId && assessment.completedAt)
     .sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))[0];
   if (!completedPlacement?.level) {
-    throw new Error('Complete the placement check for this learning goal before creating a lesson. The result is required to choose the lesson level.');
+    throw new Error('Complete the placement test for this learning goal before creating a lesson. The result is required to choose the lesson level.');
   }
   const previousLessons = workspace.materials.filter((material) => material.goalId === goalId && material.kind === 'lesson');
   const coveredTopics = [...new Set(previousLessons.flatMap(topicsFromMaterial).map((topic) => topic.trim()).filter(Boolean))];

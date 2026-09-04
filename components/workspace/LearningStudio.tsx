@@ -3,6 +3,7 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { AddRounded, AutoAwesomeRounded, HubRounded, MemoryRounded } from '@mui/icons-material';
 import { Snackbar } from '@mui/material';
+import Image from 'next/image';
 import { api } from '../../lib/api';
 import type { AgentId, KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningGoal, LearningMaterial, LearningWorkspace, PlacementResult, PublicPlacementAssessment, ResearchSuggestion } from '../../shared/contracts';
 import { LearningChat } from './LearningChat';
@@ -115,10 +116,10 @@ export function LearningStudio() {
       const assessment = await api.createPlacement(learnerId, newGoal.id);
       setPlacementResult(undefined);
       setPlacement(assessment);
-      setToast('Goal saved. Start with this diagnostic placement check.');
+      setToast('Goal saved. Start with this placement test.');
     } catch (error) {
       setToast(goalSaved
-        ? `Goal saved, but the placement check could not be prepared: ${error instanceof Error ? error.message : 'unknown error'}`
+        ? `Goal saved, but the placement test could not be prepared: ${error instanceof Error ? error.message : 'unknown error'}`
         : error instanceof Error ? error.message : 'Could not save the goal.');
     } finally { setBusy(false); setActiveAgent(undefined); }
   };
@@ -228,8 +229,8 @@ export function LearningStudio() {
     if (!completedPlacement) {
       try {
         await openPlacementForGoal();
-        setToast('Complete this placement check first so the lesson matches your current level.');
-      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement check could not be prepared.'); }
+        setToast('Complete this placement test first so the lesson matches your current level.');
+      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement test could not be prepared.'); }
       return;
     }
     setLessonRequestOpen(true);
@@ -264,7 +265,7 @@ export function LearningStudio() {
     if (!placement) return;
     setBusy(true); setActiveAgent('assessor');
     try { const result = await api.submitPlacement(learnerId, placement.id, answers); applyWorkspace(result.workspace); setPlacementResult(result); }
-    catch (error) { setToast(error instanceof Error ? error.message : 'The placement check could not be scored.'); }
+    catch (error) { setToast(error instanceof Error ? error.message : 'The test could not be scored.'); }
     finally { setBusy(false); setActiveAgent(undefined); }
   };
 
@@ -273,8 +274,8 @@ export function LearningStudio() {
     if (!completedPlacement) {
       try {
         await openPlacementForGoal();
-        setToast('Complete this placement check first so the suggested lesson matches your current level.');
-      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement check could not be prepared.'); }
+        setToast('Complete this placement test first so the suggested lesson matches your current level.');
+      } catch (error) { setToast(error instanceof Error ? error.message : 'The placement test could not be prepared.'); }
       return;
     }
     setActiveAgent('teacher');
@@ -305,5 +306,5 @@ export function LearningStudio() {
   const openNewGoal = () => { setEditingGoal(undefined); setGoalOpen(true); };
   const openGoalEditor = () => { if (activeGoal) { setEditingGoal(activeGoal); setGoalOpen(true); } };
 
-  return <main className="studio-shell"><aside className="studio-nav"><button className="studio-logo" aria-label="AdaptLearn"><span>A</span></button><nav><button className="active"><HubRounded /> Workspace</button><button onClick={() => setMemoryOpen(true)}><MemoryRounded /> Profiles &amp; progress</button></nav><button className="nav-profile" onClick={() => setMemoryOpen(true)}><span>{workspace.profile.displayName.slice(0,2).toUpperCase()}</span><div><strong>{workspace.profile.displayName}</strong><small>{profiles.length} learner {profiles.length === 1 ? 'profile' : 'profiles'}</small></div></button></aside><section className="studio-main"><header className="studio-header"><div><p>ADAPTLEARN · PERSONAL WORKSPACE</p><h2>Build only what helps you learn</h2></div><div><span className={`connection-pill ${online && aiConnected ? 'online' : ''}`}>● {online ? aiConnected ? 'AI connected' : 'AI key unavailable' : 'Service offline'}</span><button onClick={openNewGoal}><AddRounded /> {activeGoal ? 'New goal' : 'Add goal'}</button><button className="whats-new" disabled={!activeGoal || Boolean(activeAgent)} onClick={() => void runResearch()}><AutoAwesomeRounded /> What&apos;s new?</button></div></header><WorkspaceCanvas workspace={workspace} activeAgent={activeAgent} onAddGoal={openNewGoal} onActivateGoal={(goalId) => void activateGoal(goalId)} onEditGoal={openGoalEditor} onDeleteGoal={() => void deleteGoal()} onDocuments={() => setDocumentsOpen(true)} onMemory={() => setMemoryOpen(true)} onCreateLesson={() => void requestLesson()} onAgentAction={(agent) => void runAgentAction(agent)} onOpenMaterial={setMaterial} onAcceptSuggestion={(suggestion) => void acceptSuggestion(suggestion)} onUpload={() => fileInput.current?.click()} /></section><LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} workspace={workspace} profiles={profiles} onClose={() => setMemoryOpen(false)} onSwitch={switchProfile} onCreate={createProfile} onDelete={deleteProfile} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></main>;
+  return <main className="studio-shell"><aside className="studio-nav"><div className="studio-logo"><Image src="/brand/adaptlearn-logo.png" alt="AdaptLearn" width={1536} height={1024} priority /></div><nav><button className="active"><HubRounded /> Workspace</button><button onClick={() => setMemoryOpen(true)}><MemoryRounded /> Profiles &amp; progress</button></nav><button className="nav-profile" onClick={() => setMemoryOpen(true)}><span>{workspace.profile.displayName.slice(0,2).toUpperCase()}</span><div><strong>{workspace.profile.displayName}</strong><small>{profiles.length} learner {profiles.length === 1 ? 'profile' : 'profiles'}</small></div></button></aside><section className="studio-main"><header className="studio-header"><div><p>ADAPTLEARN · PERSONAL WORKSPACE</p><h2>Build only what helps you learn</h2></div><div><span className={`connection-pill ${online && aiConnected ? 'online' : ''}`}>● {online ? aiConnected ? 'AI connected' : 'AI key unavailable' : 'Service offline'}</span><button onClick={openNewGoal}><AddRounded /> {activeGoal ? 'New goal' : 'Add goal'}</button><button className="whats-new" disabled={!activeGoal || Boolean(activeAgent)} onClick={() => void runResearch()}><AutoAwesomeRounded /> What&apos;s new?</button></div></header><WorkspaceCanvas workspace={workspace} activeAgent={activeAgent} onAddGoal={openNewGoal} onActivateGoal={(goalId) => void activateGoal(goalId)} onEditGoal={openGoalEditor} onDeleteGoal={() => void deleteGoal()} onDocuments={() => setDocumentsOpen(true)} onMemory={() => setMemoryOpen(true)} onCreateLesson={() => void requestLesson()} onAgentAction={(agent) => void runAgentAction(agent)} onOpenMaterial={setMaterial} onAcceptSuggestion={(suggestion) => void acceptSuggestion(suggestion)} onUpload={() => fileInput.current?.click()} /></section><LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} workspace={workspace} profiles={profiles} onClose={() => setMemoryOpen(false)} onSwitch={switchProfile} onCreate={createProfile} onDelete={deleteProfile} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></main>;
 }

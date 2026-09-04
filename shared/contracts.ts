@@ -115,6 +115,8 @@ export type PlacementDiagnostics = {
 export type PlacementAssessment = {
   id: string;
   goalId: string;
+  testType?: 'placement' | 'assessment';
+  attemptNumber?: number;
   title: string;
   questions: Array<PlacementQuestion & { correctIndex: number }>;
   submittedAnswers?: number[];

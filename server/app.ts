@@ -258,7 +258,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     void _next;
     const message = error instanceof Error ? error.message : 'Unknown server error';
-    const status = error instanceof z.ZodError ? 400 : message.startsWith('Complete the placement check') ? 409 : 500;
+    const status = error instanceof z.ZodError ? 400 : message.startsWith('Complete the placement test') ? 409 : 500;
     console.error(`[AdaptLearn] ${message}`);
     response.status(status).json({ error: message });
   });

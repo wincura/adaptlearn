@@ -1,6 +1,6 @@
 # AdaptLearn
 
-AdaptLearn is a local-first, adaptive learning workspace. It starts with no seeded courses or learning materials. A learner adds a goal, completes a diagnostic placement check, then creates sourced lessons, assessments, practical activities, or current-learning suggestions for that goal.
+AdaptLearn is a local-first, adaptive learning workspace. It starts with no seeded courses or learning materials. A learner adds a goal, completes a placement test, then creates sourced lessons, assessment tests, practical activities, or current-learning suggestions for that goal.
 
 ## Run locally
 
@@ -17,12 +17,12 @@ The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` 
 
 ## What works
 
-- Real OpenAI-backed Learning Guide for concept explanations and follow-up questions; it receives no profile, goal, lesson, document, assessment, or progress context and cannot create app content, run searches, or route work
+- Real OpenAI-backed Learning Guide for concept explanations and follow-up questions; it receives only the active goal shown in the workspace, with no profile, lesson, document, assessment, or progress context, and cannot create app content, run searches, or route work
 - Persistent local workspace memory with full learner-profile CRUD and distinct goals, conversation, outputs, assessments, XP, and badges for each profile
 - Learning-goal creation, selection, editing, and deletion; lessons, placement evidence, and covered-topic history remain attached to their own goal
 - A clear-chat control that removes only conversation history and retains the rest of the workspace
 - A minimized learning-guide chat bubble that can be opened, cleared, and minimized again; each explanation ends with one to three keywords that can be copied into the next-lesson focus fields
-- Automatic 12-question placement after a new goal is saved, plus on-demand placement checks across multiple skill dimensions and difficulty bands
+- Automatic 12-question placement test after a new goal is saved, followed by repeatable assessment tests across multiple skill dimensions and difficulty bands
 - Teacher-created lessons grounded in required web search, with clickable public source links and a clickable 4–6 question knowledge check with corrections; learners can let the app choose the next topic or request up to three distinct ideas
 - Per-goal lesson continuity: generated lessons persist canonical topic labels, and future research avoids topics already represented in that goal's lesson history
 - Placement-gated lessons use both the overall level and dimension-level strengths and focus areas to shape future content
