@@ -220,9 +220,7 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-715832090989-us-east-1",
      "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
     },
     "Timeout": 900,
@@ -650,11 +648,7 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":bedrock:us-east-1:",
-           {
-            "Ref": "AWS::AccountId"
-           },
-           ":inference-profile/us.amazon.nova-2-lite-v1:0"
+           ":bedrock:us-east-1:715832090989:inference-profile/us.amazon.nova-2-lite-v1:0"
           ]
          ]
         }
@@ -678,10 +672,8 @@
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
-     "S3Key": "7cb8096c39f4e0ee55397b48ceb6e986df6178a894ed1b5e45a0cd2f91f3a3b1.zip"
+     "S3Bucket": "cdk-hnb659fds-assets-715832090989-us-east-1",
+     "S3Key": "c6dc84e8dee465b81015e25711295c7ffbae812a1f489230b82b8b6b86c18256.zip"
     },
     "Environment": {
      "Variables": {
@@ -713,7 +705,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "AdaptLearnStack/ApiFunction/Resource",
-    "aws:asset:path": "asset.7cb8096c39f4e0ee55397b48ceb6e986df6178a894ed1b5e45a0cd2f91f3a3b1",
+    "aws:asset:path": "asset.c6dc84e8dee465b81015e25711295c7ffbae812a1f489230b82b8b6b86c18256",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -780,11 +772,7 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       ":execute-api:us-east-1:715832090989:",
        {
         "Ref": "HttpApiF5A9A8A7"
        },
@@ -840,11 +828,7 @@
        {
         "Ref": "AWS::Partition"
        },
-       ":execute-api:us-east-1:",
-       {
-        "Ref": "AWS::AccountId"
-       },
-       ":",
+       ":execute-api:us-east-1:715832090989:",
        {
         "Ref": "HttpApiF5A9A8A7"
        },
@@ -996,9 +980,7 @@
    "Type": "AWS::Lambda::LayerVersion",
    "Properties": {
     "Content": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-715832090989-us-east-1",
      "S3Key": "98f62bef9320f8c0a0a7be21d7c746f069131f196f51ffe3008a6bb730b368ec.zip"
     },
     "Description": "/opt/awscli/aws"
@@ -1020,12 +1002,10 @@
      ]
     },
     "SourceBucketNames": [
-     {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     }
+     "cdk-hnb659fds-assets-715832090989-us-east-1"
     ],
     "SourceObjectKeys": [
-     "a3d1e2b92125bc24828be2175306118f0fd40ab7ec69f52704cf0c4f7bbe3e4c.zip"
+     "f3a5c102db58dca713dbdf42c63ff6b999b9cc2f509208c341f66732dbbdf2f0.zip"
     ],
     "DestinationBucketName": {
      "Ref": "WebsiteBucket75C24D94"
@@ -1101,10 +1081,7 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":s3:::",
-           {
-            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-           }
+           ":s3:::cdk-hnb659fds-assets-715832090989-us-east-1"
           ]
          ]
         },
@@ -1116,11 +1093,7 @@
            {
             "Ref": "AWS::Partition"
            },
-           ":s3:::",
-           {
-            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-           },
-           "/*"
+           ":s3:::cdk-hnb659fds-assets-715832090989-us-east-1/*"
           ]
          ]
         }
@@ -1192,9 +1165,7 @@
      "arm64"
     ],
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-715832090989-us-east-1",
      "S3Key": "97e9ebf0b174a5c8f7faa505739022b7f509edddffcab9211dcd08b759944c4f.zip"
     },
     "Environment": {
