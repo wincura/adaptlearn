@@ -1,7 +1,6 @@
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import mammoth from 'mammoth';
-import { PDFParse } from 'pdf-parse';
 import type { KnowledgeDocument } from '../../shared/contracts.ts';
 import type {
   KnowledgeRepository,
@@ -31,6 +30,9 @@ async function extractText(file: UploadedDocumentInput): Promise<string> {
 
   const buffer = await readFile(file.path);
   if (extension === '.pdf') {
+    // pdf-parse initializes browser-oriented PDF.js globals. Loading it only
+    // for a PDF upload keeps the Lambda's ordinary API startup Node-safe.
+    const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     try {
       return (await parser.getText()).text;

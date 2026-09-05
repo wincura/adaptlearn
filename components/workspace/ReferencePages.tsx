@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
-import Image from 'next/image';
 import {
   AddRounded,
   ArrowBackRounded,
@@ -103,7 +102,7 @@ export function useGoalBannerImage(goal?: LearningGoal) {
 
 function Sidebar({ active, workspace, onNavigate, onManageProfiles }: SidebarProps) {
   return <aside className="reference-sidebar">
-    <div className="reference-brand"><Image className="reference-brand-image" src="/brand/adaptlearn-app-icon.png" alt="AdaptLearn" width={1536} height={1024} priority /></div>
+    <div className="reference-brand"><img className="reference-brand-image" src="/brand/adaptlearn-logo.png" alt="AdaptLearn" /></div>
     <nav aria-label="Primary navigation">{navItems.map(({ id, label, icon: Icon }) => <button className={active === id || (active === 'course-detail' && id === 'courses') ? 'active' : ''} key={id} onClick={() => onNavigate(id)}><Icon />{label}</button>)}</nav>
     <button className="reference-user" onClick={onManageProfiles} aria-label="Manage learner profiles"><span>{initials(workspace.profile.displayName)}</span><div><strong>{workspace.profile.displayName}</strong><small>Learner</small></div></button>
   </aside>;

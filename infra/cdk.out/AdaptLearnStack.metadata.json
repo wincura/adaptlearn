@@ -1,0 +1,556 @@
+{
+  "/AdaptLearnStack": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+    {
+      "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+      "data": true
+    }
+  ],
+  "/AdaptLearnStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C": [
+    {
+      "type": "aws:cdk:is-custom-resource-handler-singleton",
+      "data": true
+    },
+    {
+      "type": "aws:cdk:is-custom-resource-handler-runtime-family",
+      "data": 2
+    }
+  ],
+  "/AdaptLearnStack/WebsiteUrl": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WebsiteUrl"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:242:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/ApiUrl": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiUrl"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:243:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/WorkspaceTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WorkspaceTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:244:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UploadsBucketName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UploadsBucketName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:245:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UserPoolId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:246:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UserPoolClientId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolClientId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:247:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/WebsiteBucket/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WebsiteBucket75C24D94"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:34:27)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    },
+    {
+      "type": "aws:cdk:analytics:mixin",
+      "data": {
+        "mixin": "aws-cdk-lib.aws_s3.mixins.BucketAutoDeleteObjects"
+      }
+    }
+  ],
+  "/AdaptLearnStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UploadsBucket/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UploadsBucket5E5E9B64"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:41:27)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/WorkspaceTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WorkspaceTable68AC2584"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:48:28)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UserPool/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPool6BA7E5F2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new UserPool2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:56:22)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/ApiFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiFunctionCE271BD4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:76:25)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiF5A9A8A7"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new HttpApi2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:111:21)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Distribution/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Distribution830FAC52"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Distribution2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:124:26)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new BucketDeployment2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/WebsiteBucket/Policy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WebsiteBucketPolicyE10E3262"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:34:27)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)"
+      ]
+    },
+    {
+      "type": "aws:cdk:analytics:mixin",
+      "data": {
+        "mixin": "aws-cdk-lib.aws_s3.mixins.BucketPolicyStatements"
+      }
+    }
+  ],
+  "/AdaptLearnStack/WebsiteBucket/AutoDeleteObjectsCustomResource/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "WebsiteBucketAutoDeleteObjectsCustomResource8750E461"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UploadsBucket/Policy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UploadsBucketPolicy34A32B0B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:41:27)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/UserPool/WebClient/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolWebClient4C9370B0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addClient in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:70:37)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/ApiFunction/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiFunctionServiceRole52B9747B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:76:25)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/DefaultStage/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiDefaultStage3EEB07D6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new HttpApi2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:111:21)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/GET--health/ApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiGEThealthApiIntegrationPermissionBE15BCAA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/GET--health/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiGEThealthAB1F4856"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/ANY--api--{proxy+}/ApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiANYapiproxyApiIntegrationPermission37A64BBC"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:117:13)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/ANY--api--{proxy+}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiANYapiproxy20978A2B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:117:13)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/DeployWebsite/AwsCliLayer/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeployWebsiteAwsCliLayer17DBC421"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new BucketDeployment2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/DeployWebsite/CustomResource/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeployWebsiteCustomResourceD116527B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new BucketDeployment2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals, ts-node..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/ApiFunction/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiFunctionServiceRoleDefaultPolicy20A32B8D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/HttpApi/GET--health/ApiIntegration/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HttpApiGEThealthApiIntegration8B197B8C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)"
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Distribution/Origin1/S3OriginAccessControl/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DistributionOrigin1S3OriginAccessControlEB606076"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Distribution2 in aws-cdk-lib...",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:124:26)",
+        "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/AdaptLearnStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ]
+}

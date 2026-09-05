@@ -11,7 +11,9 @@ npm install
 npm run dev:all
 ```
 
-The app runs at `http://localhost:3000`; its Express API runs at `http://localhost:8787`.
+The Vite single-page app runs at `http://localhost:3000`; its Express API runs at `http://localhost:8787`.
+
+`npm run build` produces a static frontend in `dist/`, suitable for an S3 bucket behind CloudFront. Leave `VITE_API_URL` unset when CloudFront routes `/api/*` and `/health` to API Gateway; set it to a separately hosted API origin only when needed.
 
 The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` by default. That folder is git-ignored. For a key replaced in-place, the former `GROQ_API_KEY` label is accepted temporarily. Environment variables can override the key, model, or key-file location without changing application code.
 

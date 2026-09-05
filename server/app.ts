@@ -44,6 +44,10 @@ type UnsplashSearchResponse = {
   results?: Array<{ urls?: { regular?: string } }>;
 };
 
+type ApiGatewayEventRequest = express.Request & {
+  apiGateway?: { event?: { body?: string; isBase64Encoded?: boolean } };
+};
+
 const courseImageCache = new Map<string, { image: string; expiresAt: number }>();
 
 const publicWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
@@ -62,6 +66,25 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.use(cors({ origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000' }));
   app.use(express.json({ limit: '1mb' }));
+  // serverless-http's synthetic request stream is not parsed by Express 5 in
+  // this Lambda path. Its original API Gateway event is still available on
+  // the request, so recover JSON only when Express left the body empty.
+  app.use((request: ApiGatewayEventRequest, _response, next) => {
+    const event = request.apiGateway?.event;
+    const bodyIsUnparsed = request.body === undefined
+      || Buffer.isBuffer(request.body)
+      || (typeof request.body === 'object' && Object.keys(request.body).length === 0);
+    if (!bodyIsUnparsed || !event?.body) return next();
+    try {
+      const raw = Buffer.isBuffer(request.body)
+        ? request.body.toString('utf8')
+        : event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
+      request.body = JSON.parse(raw) as unknown;
+    } catch {
+      // Leave malformed input to the existing Zod validation/error response.
+    }
+    next();
+  });
 
   app.get('/health', async (_request, response) => response.json({
     status: 'ok',

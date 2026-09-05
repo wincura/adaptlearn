@@ -6,7 +6,6 @@ import type { WorkspaceRepository } from '../../storage/workspace-repository.ts'
 import { assessorAgent } from './agent.ts';
 
 const placementSchema = z.object({
-  title: z.string().min(1).max(140),
   questions: z.array(z.object({
     prompt: z.string().min(1).max(600),
     options: z.array(z.string().min(1).max(300)).length(4),
@@ -21,9 +20,8 @@ const placementSchema = z.object({
 const placementJsonSchema: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'questions'],
+  required: ['questions'],
   properties: {
-    title: { type: 'string', minLength: 1, maxLength: 140 },
     questions: {
       type: 'array', minItems: 12, maxItems: 12,
       items: {

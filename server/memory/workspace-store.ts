@@ -6,7 +6,7 @@ import type { WorkspaceMutation, WorkspaceRepository } from '../storage/workspac
 
 type WorkspaceFile = { workspaces: Record<string, LearningWorkspace> };
 
-const freshWorkspace = (learnerId: string): LearningWorkspace => ({
+export const freshWorkspace = (learnerId: string): LearningWorkspace => ({
   learnerId,
   profile: { displayName: 'Learner', background: '', preferences: '' },
   goals: [],
@@ -28,7 +28,7 @@ const legacyTopics = (material: LearningWorkspace['materials'][number]) => {
   return usefulSections.length ? usefulSections : [material.title.slice(0, 80)];
 };
 
-const normalizedWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
+export const normalizedWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
   ...workspace,
   documents: workspace.documents ?? [],
   materials: (workspace.materials ?? []).map((material) => ({
@@ -37,7 +37,7 @@ const normalizedWorkspace = (workspace: LearningWorkspace): LearningWorkspace =>
   })),
 });
 
-const summarizeWorkspace = (workspace: LearningWorkspace): LearnerWorkspaceSummary => ({
+export const summarizeWorkspace = (workspace: LearningWorkspace): LearnerWorkspaceSummary => ({
   learnerId: workspace.learnerId,
   displayName: workspace.profile.displayName,
   background: workspace.profile.background,

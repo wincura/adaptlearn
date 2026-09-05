@@ -1,7 +1,8 @@
 import type { ChatResponse, KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningWorkspace, PlacementResult, PublicPlacementAssessment } from '../shared/contracts';
 
-// Local development uses Vite's same-origin proxy. Set this only when the API is hosted separately.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+// Local development uses Vite's same-origin proxy. Leave this unset in
+// production when CloudFront routes /api and /health to API Gateway.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, init);

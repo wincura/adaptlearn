@@ -1,7 +1,8 @@
 import type { AIProvider, AIRequest, AIResult } from './contracts.ts';
 import { openAIProvider, parseJsonObject } from './openai-client.ts';
+import { bedrockProvider } from './bedrock-provider.ts';
 
-const providers: Record<string, AIProvider> = { openai: openAIProvider };
+const providers: Record<string, AIProvider> = { openai: openAIProvider, bedrock: bedrockProvider };
 
 export function activeAIProvider(): AIProvider {
   const id = (process.env.AI_PROVIDER ?? 'openai').toLowerCase();
