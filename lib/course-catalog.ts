@@ -1,3 +1,5 @@
+import type { LearningGoal } from '../shared/contracts';
+
 export type CourseCategory = 'Languages' | 'Coding' | 'Math' | 'Science';
 
 export type CourseTemplate = {
@@ -67,3 +69,22 @@ export const COURSE_TEMPLATES: CourseTemplate[] = [
 ];
 
 export const courseTemplate = (id?: string) => COURSE_TEMPLATES.find((course) => course.id === id);
+
+export const courseTemplateForGoal = (goal: Pick<LearningGoal, 'courseTemplateId' | 'title'>) => {
+  const savedTemplate = courseTemplate(goal.courseTemplateId);
+  if (savedTemplate) return savedTemplate;
+  const title = goal.title.toLocaleLowerCase();
+  return COURSE_TEMPLATES.find((template) => title.includes(template.title.toLocaleLowerCase()));
+};
+
+const customCourseFallbacks = [
+  { terms: ['english', 'language', 'writing', 'literature', 'communication'], image: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=900&h=480&fit=crop&auto=format' },
+  { terms: ['architecture', 'building', 'interior', 'design'], image: 'https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=900&h=480&fit=crop&auto=format' },
+  { terms: ['science', 'biology', 'chemistry', 'physics'], image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=900&h=480&fit=crop&auto=format' },
+  { terms: ['history', 'art', 'culture'], image: 'https://images.unsplash.com/photo-1564399579883-451a5d44ec08?w=900&h=480&fit=crop&auto=format' },
+];
+
+export const customCourseFallbackImage = (title: string) => {
+  const normalizedTitle = title.toLocaleLowerCase();
+  return customCourseFallbacks.find(({ terms }) => terms.some((term) => normalizedTitle.includes(term)))?.image;
+};

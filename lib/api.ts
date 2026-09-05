@@ -28,6 +28,7 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Cont
 
 export const api = {
   health: () => request<{ status: string; storage: string; knowledge: string; ai: string; aiConfigured: boolean }>('/health'),
+  courseImage: (query: string) => request<{ image?: string }>(`/api/course-image?query=${encodeURIComponent(query)}`),
   profiles: () => request<LearnerWorkspaceSummary[]>('/api/profiles'),
   createProfile: (profile: LearnerProfile) => request<LearningWorkspace>('/api/profiles', json(profile)),
   deleteProfile: (learnerId: string) => request<{ profiles: LearnerWorkspaceSummary[] }>(`/api/profiles/${learnerId}`, { method: 'DELETE' }),

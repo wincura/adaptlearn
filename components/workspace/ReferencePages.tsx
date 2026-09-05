@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
   AddRounded,
@@ -35,7 +35,8 @@ import {
 } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import type { LearnerProfile, LearnerWorkspaceSummary, LearningGoal, LearningMaterial, LearningWorkspace, ResearchSuggestion } from '../../shared/contracts';
-import { COURSE_TEMPLATES, type CourseCategory, type CourseTemplate, courseTemplate } from '../../lib/course-catalog';
+import { api } from '../../lib/api';
+import { COURSE_TEMPLATES, customCourseFallbackImage, type CourseCategory, type CourseTemplate, courseTemplate, courseTemplateForGoal } from '../../lib/course-catalog';
 import { activityStreak, assessmentHistory, goalProgress, latestCompletedAssessment, memberSince, overallMastery, skillBreakdown, weeklyActivity } from '../../lib/learning-metrics';
 
 export type StudioView = 'workspace' | 'courses' | 'progress' | 'profile' | 'course-detail';
@@ -78,12 +79,27 @@ const customColor = (title: string) => {
 };
 
 const goalTemplate = (goal: LearningGoal) => courseTemplate(goal.courseTemplateId);
-const goalReferenceTemplate = (goal: LearningGoal) => {
-  const savedTemplate = goalTemplate(goal);
-  if (savedTemplate) return savedTemplate;
-  const title = goal.title.toLocaleLowerCase();
-  return COURSE_TEMPLATES.find((template) => title.includes(template.title.toLocaleLowerCase()));
-};
+const goalReferenceTemplate = (goal: LearningGoal) => courseTemplateForGoal(goal);
+
+export function useGoalBannerImage(goal?: LearningGoal) {
+  const templateImage = goal ? goalReferenceTemplate(goal)?.image : undefined;
+  const fallbackImage = goal ? customCourseFallbackImage(goal.title) : undefined;
+  const goalId = goal?.id;
+  const goalTitle = goal?.title;
+  const imageKey = goalId && goalTitle ? `${goalId}:${goalTitle}` : '';
+  const [remoteImage, setRemoteImage] = useState<{ key: string; image: string }>();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!goalTitle || templateImage) return () => { cancelled = true; };
+    void api.courseImage(goalTitle).then(({ image }) => {
+      if (!cancelled && image) setRemoteImage({ key: imageKey, image });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [goalId, goalTitle, imageKey, templateImage]);
+
+  return templateImage ?? (remoteImage?.key === imageKey ? remoteImage.image : undefined) ?? fallbackImage;
+}
 
 function Sidebar({ active, workspace, onNavigate, onManageProfiles }: SidebarProps) {
   return <aside className="reference-sidebar">
@@ -104,12 +120,13 @@ function CourseMedia({ color, image, icon }: { color: string; image?: string; ic
 function DataCourseCard({ workspace, goal, template, onOpen, onEnroll, compact = false }: { workspace: LearningWorkspace; goal?: LearningGoal; template?: CourseTemplate; onOpen?: () => void; onEnroll?: () => void; compact?: boolean }) {
   const title = goal?.title ?? template?.title ?? 'Personal course';
   const referenceTemplate = goal ? goalReferenceTemplate(goal) ?? template : template;
+  const bannerImage = useGoalBannerImage(goal);
   const color = template?.color ?? referenceTemplate?.color ?? customColor(title);
   const progress = goal ? goalProgress(workspace, goal.id) : undefined;
   const latest = goal ? latestCompletedAssessment(workspace, goal.id) : undefined;
   const action = goal ? onOpen : onEnroll;
   return <article className={`reference-course-card${compact ? ' compact' : ''}`} {...(goal ? { role: 'button' as const, tabIndex: 0, onClick: action, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); action?.(); } } } : {})}>
-    <CourseMedia color={color} image={referenceTemplate?.image} icon={referenceTemplate?.icon ?? '✦'} />
+    <CourseMedia color={color} image={bannerImage} icon={referenceTemplate?.icon ?? '✦'} />
     <div className="reference-course-body"><div className="reference-course-title"><h3>{title}</h3>{goal && <span className="reference-course-progress">{progress === undefined ? '—' : `${progress}%`}</span>}</div><p className="reference-course-meta">{template && !goal ? `${template.category} · ${template.lessons} lessons · ${template.duration}` : 'CUSTOM COURSE'}</p>{goal ? <div className="reference-course-progress-line">{progress !== undefined && <span style={{ width: `${progress}%`, backgroundColor: color }} />}</div> : <p className="reference-course-description">{template?.description}</p>}<div className="reference-course-footer"><small>{latest?.level ?? (goal ? 'Unassessed' : template?.level)}</small>{goal ? <span><MenuBookRounded />{progress === undefined ? 'Start placement' : 'Open course'}<ChevronRightRounded /></span> : <button type="button" onClick={(event) => { event.stopPropagation(); action?.(); }}>Enroll <ArrowForwardRounded /></button>}</div></div>
   </article>;
 }
