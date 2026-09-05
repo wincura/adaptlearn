@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "vinext dev",
-    "api:dev": "node --env-file=.env --experimental-strip-types --watch server/index.ts",
-    "dev:all": "concurrently -n web,api -c green,blue \"vinext dev\" \"node --env-file=.env --experimental-strip-types --watch server/index.ts\"",
+    "api:dev": "node --env-file-if-exists=.env --experimental-strip-types --watch server/index.ts",
+    "dev:all": "concurrently -n web,api -c green,blue \"vinext dev\" \"node --env-file-if-exists=.env --experimental-strip-types --watch server/index.ts\"",
     "build": "vinext build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/learning-metrics.test.ts",
