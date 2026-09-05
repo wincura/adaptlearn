@@ -17,6 +17,7 @@ import type { AgentId, LearningMaterial, LearningWorkspace, ResearchSuggestion }
 
 type Props = {
   workspace: LearningWorkspace;
+  bannerImage?: string;
   activeAgent?: AgentId;
   onAddGoal: () => void;
   onActivateGoal: (goalId: string) => void;
@@ -31,7 +32,7 @@ type Props = {
   onUpload: () => void;
 };
 
-export function WorkspaceCanvas({ workspace, activeAgent, onAddGoal, onActivateGoal, onEditGoal, onDeleteGoal, onDocuments, onMemory, onCreateLesson, onAgentAction, onOpenMaterial, onAcceptSuggestion, onUpload }: Props) {
+export function WorkspaceCanvas({ workspace, bannerImage, activeAgent, onAddGoal, onActivateGoal, onEditGoal, onDeleteGoal, onDocuments, onMemory, onCreateLesson, onAgentAction, onOpenMaterial, onAcceptSuggestion, onUpload }: Props) {
   const goal = workspace.goals.find((item) => item.status === 'active');
   const readyDocuments = workspace.documents.filter((document) => document.status === 'ready');
   const processingDocuments = workspace.documents.filter((document) => document.status === 'processing');
@@ -45,7 +46,7 @@ export function WorkspaceCanvas({ workspace, activeAgent, onAddGoal, onActivateG
   const suggestions = workspace.suggestions.filter((item) => item.status === 'suggested' && (!goal || item.goalId === goal.id));
   return (
     <div className="workspace-canvas">
-      <section className="coordinator-card">
+      <section className="coordinator-card" style={bannerImage ? { backgroundImage: `linear-gradient(90deg, rgba(23, 62, 52, .98) 0%, rgba(23, 62, 52, .78) 48%, rgba(23, 62, 52, .42) 100%), url(${bannerImage})`, backgroundPosition: 'center', backgroundSize: 'cover' } : undefined}>
         <div className="coordinator-icon"><TrackChangesRounded /></div>
         <div><span>YOUR CURRENT DIRECTION</span><h1>{goal ? goal.title : 'What would you like to become better at?'}</h1><p>{goal ? goal.targetOutcome || goal.motivation || 'Your active learning goal' : 'Start with a goal and a little background. AdaptLearn will shape the right next steps around you.'}</p></div>
         <button onClick={onMemory}>View profile</button>

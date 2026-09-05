@@ -38,6 +38,13 @@ const goalSchema = z.object({
   preferences: z.string().trim().max(1000).default(''),
 });
 const goalDetailsSchema = goalSchema.pick({ title: true, motivation: true, targetOutcome: true });
+const courseImageSchema = z.object({ query: z.string().trim().min(2).max(120) });
+
+type UnsplashSearchResponse = {
+  results?: Array<{ urls?: { regular?: string } }>;
+};
+
+const courseImageCache = new Map<string, { image: string; expiresAt: number }>();
 
 const publicWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
   ...workspace,
@@ -63,6 +70,32 @@ export function createApp(dependencies: AppDependencies = {}) {
     ai: aiProviderId(),
     aiConfigured: await aiIsConfigured(),
   }));
+
+  app.get('/api/course-image', async (request, response) => {
+    const { query } = courseImageSchema.parse(request.query);
+    const normalizedQuery = query.toLocaleLowerCase();
+    const cached = courseImageCache.get(normalizedQuery);
+    if (cached && cached.expiresAt > Date.now()) return response.json({ image: cached.image });
+
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY ?? process.env.UNSPLASH_API_KEY;
+    if (!accessKey) return response.json({});
+
+    const searchUrl = new URL('https://api.unsplash.com/search/photos');
+    searchUrl.searchParams.set('query', query);
+    searchUrl.searchParams.set('per_page', '1');
+    searchUrl.searchParams.set('orientation', 'landscape');
+
+    try {
+      const result = await fetch(searchUrl, { headers: { Authorization: `Client-ID ${accessKey}`, 'Accept-Version': 'v1' } });
+      if (!result.ok) return response.json({});
+      const payload = await result.json() as UnsplashSearchResponse;
+      const image = payload.results?.[0]?.urls?.regular;
+      if (image) courseImageCache.set(normalizedQuery, { image, expiresAt: Date.now() + 60 * 60 * 1000 });
+      return response.json(image ? { image } : {});
+    } catch {
+      return response.json({});
+    }
+  });
 
   app.get('/api/agents', (_request, response) => response.json(Object.values(agents).map(({ id, name, owns, doesNotOwn }) => ({ id, name, owns, doesNotOwn }))));
 
