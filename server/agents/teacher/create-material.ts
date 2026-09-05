@@ -224,6 +224,7 @@ export async function createTeacherMaterial(
     quiz: content.quiz.map((question) => ({ ...question, id: crypto.randomUUID() })),
     sources,
     codingChallenge,
+    codingChallenges: codingChallenge ? [codingChallenge] : [],
     isCodeTopic: detected.isCodeTopic,
     createdAt: new Date().toISOString(),
   };

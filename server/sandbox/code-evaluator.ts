@@ -63,6 +63,7 @@ export async function generateCodingChallenge(
   topic: string,
   language: SupportedCodeLanguage,
   assessedLevel: string = 'Beginner',
+  options?: { previousTitles?: string[] },
 ): Promise<CodingChallenge> {
   const systemPrompt = `
 You are an expert Computer Science curriculum designer and coding tutor.
@@ -92,12 +93,16 @@ Requirements:
 Return ONLY valid JSON matching the schema.
 `.trim();
 
+  const previousContext = options?.previousTitles && options.previousTitles.length > 0
+    ? `\nPreviously generated questions for this topic: ${options.previousTitles.map((t) => `"${t}"`).join(', ')}.\nCRITICAL: Provide a FRESH, DIFFERENT practice problem testing a distinct angle or application of "${topic}". Do not repeat or closely mirror previous questions.`
+    : '';
+
   const userPrompt = `
 Learner Goal: ${goal.title} (${goal.motivation})
 Lesson: ${lessonTitle}
 Topic Focus: ${topic}
 Level: ${assessedLevel}
-Language: ${language}
+Language: ${language}${previousContext}
 `.trim();
 
   const raw = await aiChat({

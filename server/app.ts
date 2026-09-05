@@ -331,7 +331,10 @@ export function createApp(dependencies: AppDependencies = {}) {
   });
 
   app.post('/api/materials/:materialId/coding-challenge', async (request, response) => {
-    const input = z.object({ learnerId: learnerIdSchema }).parse(request.body);
+    const input = z.object({
+      learnerId: learnerIdSchema,
+      forceNew: z.boolean().optional(),
+    }).parse(request.body);
     const materialId = z.string().uuid().parse(request.params.materialId);
     const workspace = await store.get(input.learnerId);
     const material = workspace.materials.find((item) => item.id === materialId);
@@ -340,7 +343,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     const goal = workspace.goals.find((g) => g.id === material.goalId);
     if (!goal) return response.status(404).json({ error: 'Goal not found.' });
 
-    if (material.codingChallenge) {
+    if (material.codingChallenge && !input.forceNew) {
       return response.json({ challenge: material.codingChallenge });
     }
 
@@ -349,18 +352,38 @@ export function createApp(dependencies: AppDependencies = {}) {
       return response.status(400).json({ error: 'This topic does not require code execution.' });
     }
 
+    const previousTitles: string[] = [];
+    if (material.codingChallenge?.title) {
+      previousTitles.push(material.codingChallenge.title);
+    }
+    if (material.codingChallenges) {
+      for (const c of material.codingChallenges) {
+        if (c.title && !previousTitles.includes(c.title)) {
+          previousTitles.push(c.title);
+        }
+      }
+    }
+
     const challenge = await generateCodingChallenge(
       goal,
       material.title,
       material.topics?.[0] ?? material.title,
       detected.language,
       material.assessedLevel ?? 'Beginner',
+      { previousTitles },
     );
 
     const updated = await store.update(input.learnerId, (current) => {
       const item = current.materials.find((m) => m.id === materialId);
       if (item) {
+        if (!item.codingChallenges) {
+          item.codingChallenges = item.codingChallenge ? [item.codingChallenge] : [];
+        }
+        if (item.codingChallenge && !item.codingChallenges.some((c) => c.id === item.codingChallenge?.id)) {
+          item.codingChallenges.push(item.codingChallenge);
+        }
         item.codingChallenge = challenge;
+        item.codingChallenges.push(challenge);
         item.isCodeTopic = true;
       }
     });

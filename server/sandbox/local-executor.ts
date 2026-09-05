@@ -198,10 +198,17 @@ finally:
         });
       }
 
+      child.stdout?.on('error', () => {});
+      child.stderr?.on('error', () => {});
+
       const timer = setTimeout(() => {
         timedOut = true;
         killed = true;
-        child.kill('SIGKILL');
+        try {
+          child.kill();
+        } catch {
+          // Process might already be closed
+        }
       }, timeoutMs);
 
       child.stdout?.on('data', (chunk: Buffer) => {

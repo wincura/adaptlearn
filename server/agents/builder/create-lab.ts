@@ -103,6 +103,7 @@ export async function createBuilderLab(store: WorkspaceRepository, learnerId: st
     kind: 'practice-lab',
     ...content,
     codingChallenge,
+    codingChallenges: codingChallenge ? [codingChallenge] : [],
     isCodeTopic: detected.isCodeTopic,
     createdAt: new Date().toISOString(),
   };

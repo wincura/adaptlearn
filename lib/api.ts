@@ -3,13 +3,25 @@ import type { ChatResponse, KnowledgeDocument, LearnerProfile, LearnerWorkspaceS
 // Local development uses Vite's same-origin proxy. Set this only when the API is hosted separately.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, init);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: `Request failed (${response.status})` })) as { error?: string };
-    throw new Error(body.error ?? `Request failed (${response.status})`);
+async function request<T>(path: string, init?: RequestInit, retries = 2): Promise<T> {
+  try {
+    const response = await fetch(`${API_URL}${path}`, init);
+    if (!response.ok) {
+      if ((response.status === 502 || response.status === 503) && retries > 0) {
+        await new Promise((r) => setTimeout(r, 300));
+        return request<T>(path, init, retries - 1);
+      }
+      const body = await response.json().catch(() => ({ error: `Request failed (${response.status})` })) as { error?: string };
+      throw new Error(body.error ?? `Request failed (${response.status})`);
+    }
+    return response.json() as Promise<T>;
+  } catch (err) {
+    if (retries > 0 && err instanceof Error && (err.message.includes('fetch failed') || err.message.includes('ECONNRESET') || err.message.includes('network'))) {
+      await new Promise((r) => setTimeout(r, 300));
+      return request<T>(path, init, retries - 1);
+    }
+    throw err;
   }
-  return response.json() as Promise<T>;
 }
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -45,7 +57,7 @@ export const api = {
     request<{ execution: import('../shared/contracts').ExecutionResult }>('/api/sandbox/run-tests', json({ challenge, studentCode })),
   evaluateCode: (challenge: import('../shared/contracts').CodingChallenge, studentCode: string, learnerId?: string, goalId?: string) =>
     request<{ evaluation: import('../shared/contracts').CodeEvaluationResponse; workspace?: LearningWorkspace }>('/api/sandbox/evaluate', json({ challenge, studentCode, learnerId, goalId })),
-  generateCodingChallenge: (learnerId: string, materialId: string) =>
-    request<{ challenge: import('../shared/contracts').CodingChallenge; workspace: LearningWorkspace }>(`/api/materials/${materialId}/coding-challenge`, json({ learnerId })),
+  generateCodingChallenge: (learnerId: string, materialId: string, forceNew?: boolean) =>
+    request<{ challenge: import('../shared/contracts').CodingChallenge; workspace: LearningWorkspace }>(`/api/materials/${materialId}/coding-challenge`, json({ learnerId, forceNew })),
 };
 

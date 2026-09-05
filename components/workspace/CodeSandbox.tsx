@@ -12,9 +12,12 @@ import {
   ArrowForwardRounded,
   CheckCircleOutlineRounded,
   CheckCircleRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
   CodeRounded,
   ContentCopyRounded,
   ErrorOutlineRounded,
+  ExpandMoreRounded,
   HelpOutlineRounded,
   LightbulbOutlined,
   LockOutlined,
@@ -39,8 +42,11 @@ import type {
 
 type CodeSandboxProps = {
   challenge: CodingChallenge;
+  challenges?: CodingChallenge[];
+  materialId?: string;
   learnerId?: string;
   goalId?: string;
+  onRequestNextChallenge?: () => Promise<CodingChallenge | void>;
   onCompleted?: (result: CodeEvaluationResponse, updatedWorkspace?: LearningWorkspace) => void;
 };
 
@@ -170,11 +176,28 @@ export function formatPromptMarkdown(prompt: string): string {
   return resultLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeSandboxProps) {
+export function CodeSandbox({
+  challenge: initialChallenge,
+  challenges: initialChallenges,
+  materialId,
+  learnerId,
+  goalId,
+  onRequestNextChallenge,
+  onCompleted,
+}: CodeSandboxProps) {
   const [mounted, setMounted] = useState(false);
-  const [code, setCode] = useState(challenge.starterCode);
+  const [activeChallenge, setActiveChallenge] = useState<CodingChallenge>(initialChallenge);
+  const [allChallenges, setAllChallenges] = useState<CodingChallenge[]>(
+    initialChallenges && initialChallenges.length > 0 ? initialChallenges : [initialChallenge],
+  );
+  const [codeMap, setCodeMap] = useState<Record<string, string>>({
+    [initialChallenge.id]: initialChallenge.starterCode,
+  });
+  const [code, setCode] = useState(initialChallenge.starterCode);
   const [isRunning, setIsRunning] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isGeneratingNext, setIsGeneratingNext] = useState(false);
+  const [nextError, setNextError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<ExecutionResult | null>(null);
   const [evaluation, setEvaluation] = useState<CodeEvaluationResponse | null>(null);
   const [showHints, setShowHints] = useState(false);
@@ -187,17 +210,88 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    setActiveChallenge(initialChallenge);
+    setCodeMap((prev) => {
+      if (prev[initialChallenge.id]) return prev;
+      return { ...prev, [initialChallenge.id]: initialChallenge.starterCode };
+    });
+  }, [initialChallenge.id]);
+
+  useEffect(() => {
+    if (initialChallenges && initialChallenges.length > 0) {
+      setAllChallenges(initialChallenges);
+    }
+  }, [initialChallenges]);
+
+  const challenge = activeChallenge;
   const allCases = challenge.testCases ?? [];
   const publicCases = allCases.filter((tc) => !tc.isHidden);
   const privateCases = allCases.filter((tc) => tc.isHidden);
   const privateCount = privateCases.length;
 
+  const handleCodeChange = (val: string) => {
+    setCode(val);
+    setCodeMap((prev) => ({ ...prev, [challenge.id]: val }));
+  };
+
+  const handleSelectChallenge = (targetChallenge: CodingChallenge) => {
+    if (targetChallenge.id === challenge.id) return;
+    setActiveChallenge(targetChallenge);
+    const existingCode = codeMap[targetChallenge.id] ?? targetChallenge.starterCode;
+    setCode(existingCode);
+    setRunResult(null);
+    setEvaluation(null);
+    setLastMode(null);
+    setSelectedCaseIndex(0);
+    setActiveConsoleTab('testcases');
+    setNextError(null);
+  };
+
   const resetCode = () => {
     if (window.confirm('Reset code back to the initial starter template?')) {
       setCode(challenge.starterCode);
+      setCodeMap((prev) => ({ ...prev, [challenge.id]: challenge.starterCode }));
       setRunResult(null);
       setEvaluation(null);
       setLastMode(null);
+    }
+  };
+
+  const handleNextPracticeQuestion = async () => {
+    setIsGeneratingNext(true);
+    setNextError(null);
+    try {
+      let nextChallenge: CodingChallenge | undefined = undefined;
+      if (onRequestNextChallenge) {
+        const result = await onRequestNextChallenge();
+        nextChallenge = result || undefined;
+      } else if (learnerId && materialId) {
+        const res = await api.generateCodingChallenge(learnerId, materialId, true);
+        nextChallenge = res.challenge;
+        if (onCompleted && res.workspace) {
+          onCompleted(evaluation!, res.workspace);
+        }
+      }
+
+      if (nextChallenge) {
+        setAllChallenges((prev) => {
+          const filtered = prev.filter((item) => item.id !== nextChallenge!.id);
+          return [...filtered, nextChallenge!];
+        });
+        setActiveChallenge(nextChallenge);
+        setCode(nextChallenge.starterCode);
+        setCodeMap((prev) => ({ ...prev, [nextChallenge!.id]: nextChallenge!.starterCode }));
+        setRunResult(null);
+        setEvaluation(null);
+        setLastMode(null);
+        setSelectedCaseIndex(0);
+        setActiveConsoleTab('testcases');
+      }
+    } catch (err) {
+      setNextError(err instanceof Error ? err.message : 'Could not generate another practice question.');
+    } finally {
+      setIsGeneratingNext(false);
     }
   };
 
@@ -307,14 +401,63 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
       ? 'sql'
       : 'txt';
 
+  const currentChallengeIndex = allChallenges.findIndex((c) => c.id === challenge.id);
+  const safeCurrentIndex = currentChallengeIndex >= 0 ? currentChallengeIndex : 0;
+
   return (
     <section className="sandbox-panel">
       {/* Header */}
       <div className="sandbox-header">
         <div className="sandbox-title-wrap">
-          <span className="sandbox-badge">
-            <CodeRounded fontSize="inherit" /> {challenge.language.toUpperCase()} PRACTICAL TEST
-          </span>
+          <div className="sandbox-top-meta">
+            <span className="sandbox-badge">
+              <CodeRounded fontSize="inherit" /> {challenge.language.toUpperCase()} PRACTICAL TEST
+            </span>
+            {allChallenges.length > 1 && (
+              <div className="sandbox-question-stepper">
+                <button
+                  type="button"
+                  className="stepper-arrow-btn"
+                  disabled={safeCurrentIndex <= 0}
+                  onClick={() => handleSelectChallenge(allChallenges[safeCurrentIndex - 1])}
+                  title="Previous practice question"
+                  aria-label="Previous practice question"
+                >
+                  <ChevronLeftRounded fontSize="small" />
+                </button>
+
+                <div className="stepper-select-container">
+                  <select
+                    className="stepper-select"
+                    value={challenge.id}
+                    onChange={(e) => {
+                      const selected = allChallenges.find((c) => c.id === e.target.value);
+                      if (selected) handleSelectChallenge(selected);
+                    }}
+                    title="Switch practice question"
+                  >
+                    {allChallenges.map((c, idx) => (
+                      <option key={c.id} value={c.id}>
+                        Q{idx + 1} of {allChallenges.length}: {c.title.length > 28 ? `${c.title.slice(0, 28)}…` : c.title}
+                      </option>
+                    ))}
+                  </select>
+                  <ExpandMoreRounded className="stepper-select-arrow" />
+                </div>
+
+                <button
+                  type="button"
+                  className="stepper-arrow-btn"
+                  disabled={safeCurrentIndex >= allChallenges.length - 1}
+                  onClick={() => handleSelectChallenge(allChallenges[safeCurrentIndex + 1])}
+                  title="Next practice question"
+                  aria-label="Next practice question"
+                >
+                  <ChevronRightRounded fontSize="small" />
+                </button>
+              </div>
+            )}
+          </div>
           <h3 className="sandbox-title">{challenge.title}</h3>
         </div>
         <div className="sandbox-actions">
@@ -414,7 +557,7 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
               minHeight="260px"
               theme={oneDark}
               extensions={getLanguageExtension(challenge.language)}
-              onChange={(val) => setCode(val)}
+              onChange={handleCodeChange}
               basicSetup={{
                 lineNumbers: true,
                 highlightActiveLineGutter: true,
@@ -573,6 +716,38 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                     </span>
                   </div>
                 </div>
+
+                {/* Try Another Practice Question Callout (shown when submitted & all passed) */}
+                {lastMode === 'submit' && runResult?.status === 'passed' && (
+                  <div className="next-practice-banner in-testcases">
+                    <div className="next-practice-info">
+                      <span className="next-practice-kicker">CHALLENGE COMPLETE</span>
+                      <h4 className="next-practice-title">Ready for another challenge?</h4>
+                      <p className="next-practice-desc">
+                        All public &amp; private edge cases verified! Would you like to test your understanding with another practice question on this topic?
+                      </p>
+                      {nextError && <div className="next-practice-error">{nextError}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-next-practice"
+                      onClick={handleNextPracticeQuestion}
+                      disabled={isGeneratingNext}
+                    >
+                      {isGeneratingNext ? (
+                        <>
+                          <CircularProgress size={16} color="inherit" />
+                          <span>Generating question...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Try Another Practice Question</span>
+                          <ArrowForwardRounded fontSize="small" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 {/* Case Chips Strip */}
                 <div className="testcase-chips-strip">
@@ -751,6 +926,37 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                     </>
                   )}
                 </div>
+
+                {evaluation.passed && (
+                  <div className="next-practice-banner">
+                    <div className="next-practice-info">
+                      <span className="next-practice-kicker">CHALLENGE COMPLETE</span>
+                      <h4 className="next-practice-title">Ready for another challenge?</h4>
+                      <p className="next-practice-desc">
+                        You solved this problem and passed all verification cases! Would you like to practice another question on this topic?
+                      </p>
+                      {nextError && <div className="next-practice-error">{nextError}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-next-practice"
+                      onClick={handleNextPracticeQuestion}
+                      disabled={isGeneratingNext}
+                    >
+                      {isGeneratingNext ? (
+                        <>
+                          <CircularProgress size={16} color="inherit" />
+                          <span>Generating question...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Try Another Practice Question</span>
+                          <ArrowForwardRounded fontSize="small" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 <div className="feedback-body">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>

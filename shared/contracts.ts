@@ -128,6 +128,7 @@ export type LearningMaterial = {
   diagnosticFocus?: string[];
   quiz?: LessonQuizQuestion[];
   codingChallenge?: CodingChallenge;
+  codingChallenges?: CodingChallenge[];
   isCodeTopic?: boolean;
   createdAt: string;
 };
