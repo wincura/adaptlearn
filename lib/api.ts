@@ -41,6 +41,8 @@ export const api = {
   deleteDocument: (learnerId: string, documentId: string) => request<LearningWorkspace>(`/api/workspace/${learnerId}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   runCode: (language: import('../shared/contracts').SupportedCodeLanguage, code: string, harness?: string) =>
     request<import('../shared/contracts').ExecutionResult>('/api/sandbox/run', json({ language, code, harness })),
+  runTestCases: (challenge: import('../shared/contracts').CodingChallenge, studentCode: string) =>
+    request<{ execution: import('../shared/contracts').ExecutionResult }>('/api/sandbox/run-tests', json({ challenge, studentCode })),
   evaluateCode: (challenge: import('../shared/contracts').CodingChallenge, studentCode: string, learnerId?: string, goalId?: string) =>
     request<{ evaluation: import('../shared/contracts').CodeEvaluationResponse; workspace?: LearningWorkspace }>('/api/sandbox/evaluate', json({ challenge, studentCode, learnerId, goalId })),
   generateCodingChallenge: (learnerId: string, materialId: string) =>

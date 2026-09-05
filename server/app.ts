@@ -15,7 +15,7 @@ import { aiIsConfigured, aiProviderId } from './ai/provider.ts';
 import type { KnowledgeRepository } from './knowledge/contracts.ts';
 import { runTurn } from './orchestration/run-turn.ts';
 import { createKnowledgeRepository, createSandboxExecutor, createWorkspaceRepository } from './runtime/providers.ts';
-import { evaluateCodeSubmission, generateCodingChallenge } from './sandbox/code-evaluator.ts';
+import { evaluateCodeSubmission, generateCodingChallenge, runChallengeTestCases } from './sandbox/code-evaluator.ts';
 import type { SandboxExecutor } from './sandbox/contracts.ts';
 import { detectCodeTopic } from './sandbox/topic-detector.ts';
 import type { WorkspaceRepository } from './storage/workspace-repository.ts';
@@ -276,19 +276,41 @@ export function createApp(dependencies: AppDependencies = {}) {
     response.json(result);
   });
 
+  const challengePayloadSchema = z.object({
+    id: z.string(),
+    language: z.enum(['python', 'javascript', 'typescript', 'sql', 'cpp', 'java']),
+    title: z.string(),
+    prompt: z.string(),
+    starterCode: z.string(),
+    testHarness: z.string(),
+    publicTestHarness: z.string().optional(),
+    privateTestHarness: z.string().optional(),
+    testCases: z.array(z.object({
+      id: z.string(),
+      description: z.string(),
+      input: z.string().optional(),
+      expectedOutput: z.string().optional(),
+      assertion: z.string().optional(),
+      isHidden: z.boolean().optional(),
+    })).optional(),
+    hints: z.array(z.string()).optional(),
+  });
+
+  app.post('/api/sandbox/run-tests', async (request, response) => {
+    const input = z.object({
+      challenge: challengePayloadSchema,
+      studentCode: z.string().max(30000),
+    }).parse(request.body);
+
+    const execution = await runChallengeTestCases(input.challenge, input.studentCode, 'run', sandbox);
+    response.json({ execution });
+  });
+
   app.post('/api/sandbox/evaluate', async (request, response) => {
     const input = z.object({
       learnerId: learnerIdSchema.optional(),
       goalId: z.string().uuid().optional(),
-      challenge: z.object({
-        id: z.string(),
-        language: z.enum(['python', 'javascript', 'typescript', 'sql', 'cpp', 'java']),
-        title: z.string(),
-        prompt: z.string(),
-        starterCode: z.string(),
-        testHarness: z.string(),
-        hints: z.array(z.string()).optional(),
-      }),
+      challenge: challengePayloadSchema,
       studentCode: z.string().max(30000),
     }).parse(request.body);
 

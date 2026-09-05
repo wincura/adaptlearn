@@ -63,6 +63,18 @@ export type CodingTestCase = {
   description: string;
   input?: string;
   expectedOutput?: string;
+  assertion?: string;
+  isHidden?: boolean;
+};
+
+export type TestCaseResult = {
+  testCaseId?: string;
+  name: string;
+  passed: boolean;
+  input?: string;
+  expectedOutput?: string;
+  actualOutput?: string;
+  error?: string;
   isHidden?: boolean;
 };
 
@@ -73,6 +85,8 @@ export type CodingChallenge = {
   prompt: string;
   starterCode: string;
   testHarness: string;
+  publicTestHarness?: string;
+  privateTestHarness?: string;
   testCases?: CodingTestCase[];
   hints?: string[];
 };
@@ -85,7 +99,9 @@ export type ExecutionResult = {
   stderr: string;
   exitCode: number;
   durationMs: number;
-  testResults?: Array<{ name: string; passed: boolean; error?: string }>;
+  testResults?: TestCaseResult[];
+  passedCount?: number;
+  totalCount?: number;
 };
 
 export type CodeEvaluationResponse = {
