@@ -7,7 +7,7 @@ import type { SandboxExecutor } from './contracts.ts';
 const challengeJsonSchema: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'prompt', 'starterCode', 'testHarness', 'testCases', 'hints'],
+  required: ['title', 'prompt', 'starterCode', 'testHarness', 'publicTestHarness', 'privateTestHarness', 'testCases', 'hints'],
   properties: {
     title: { type: 'string', minLength: 1, maxLength: 140 },
     prompt: { type: 'string', minLength: 10, maxLength: 4000 },
@@ -22,7 +22,7 @@ const challengeJsonSchema: Record<string, unknown> = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['description', 'input', 'expectedOutput', 'isHidden'],
+        required: ['description', 'input', 'expectedOutput', 'assertion', 'isHidden'],
         properties: {
           description: { type: 'string', minLength: 1, maxLength: 200 },
           input: { type: 'string', maxLength: 300 },
@@ -72,7 +72,13 @@ Target Programming Language: ${language}
 
 Requirements:
 1. title: Concise, engaging problem title.
-2. prompt: Detailed problem statement with input/output format, constraints, and 1-2 examples.
+2. prompt: Detailed, beautifully formatted problem statement using structured Markdown. Must include:
+   - An introductory paragraph explaining the real-world concept, intuition, and motivation.
+   - \`### Task\`: Clear explanation of the function to implement, the exact function signature formatted as code (e.g. \`def my_func(...) -> ...:\`), and bullet points for all specific requirements.
+   - \`### Input & Output Format\`: Clear bulleted list with parameter names, types, and descriptions, followed by the return type and structure.
+   - \`### Examples\`: 1-2 concrete worked examples with **Input:**, **Output:**, and **Explanation:** (use formatted code blocks).
+   - \`### Constraints\`: Bullet points detailing value domains, edge cases (e.g. empty lists, negative numbers), and allowed/forbidden approaches.
+   Never produce an unformatted wall of text; use clean headings, bullet points, and code formatting throughout. Do not use emojis.
 3. starterCode: Clean initial template with function signature, type hints/comments, and a TODO placeholder.
 4. testCases: 4 to 6 test cases total:
    - 2 to 3 PUBLIC test cases (isHidden: false): Standard visible cases with description, input, expectedOutput, and assertion.
@@ -130,6 +136,117 @@ Language: ${language}
   };
 }
 
+export function splitEqualityAssertion(assertCode: string): {
+  setup: string;
+  leftExpr?: string;
+  rightExpr?: string;
+} {
+  const lines = assertCode.trim().split(/\r?\n/);
+  const lastLine = lines[lines.length - 1].trim();
+  const setup = lines.slice(0, lines.length - 1).join('\n');
+
+  let expr = lastLine;
+  if (expr.startsWith('assert ')) {
+    expr = expr.slice(7).trim();
+  } else if (expr.startsWith('assert(') && expr.endsWith(')')) {
+    expr = expr.slice(7, -1).trim();
+  }
+
+  let depth = 0;
+  let inString = false;
+  let quoteChar = '';
+  let escaped = false;
+  let equalityIdx = -1;
+  let opLength = 0;
+  let commaIdx = -1;
+
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === quoteChar) {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      quoteChar = ch;
+    } else if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--;
+    } else if (depth === 0) {
+      if (equalityIdx === -1) {
+        if (expr.slice(i, i + 3) === '===') {
+          equalityIdx = i;
+          opLength = 3;
+          i += 2;
+          continue;
+        } else if (expr.slice(i, i + 2) === '==') {
+          equalityIdx = i;
+          opLength = 2;
+          i += 1;
+          continue;
+        } else if (expr.slice(i, i + 4) === ' is ') {
+          equalityIdx = i;
+          opLength = 4;
+          i += 3;
+          continue;
+        }
+      } else {
+        if (ch === ',') {
+          commaIdx = i;
+          break;
+        }
+      }
+    }
+  }
+
+  if (equalityIdx !== -1) {
+    const leftExpr = expr.slice(0, equalityIdx).trim();
+    const rightExpr = (commaIdx !== -1 ? expr.slice(equalityIdx + opLength, commaIdx) : expr.slice(equalityIdx + opLength)).trim();
+    return { setup, leftExpr, rightExpr };
+  }
+
+  let singleCommaIdx = -1;
+  depth = 0;
+  inString = false;
+  quoteChar = '';
+  escaped = false;
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quoteChar) inString = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      quoteChar = ch;
+    } else if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--;
+    } else if (depth === 0 && ch === ',') {
+      singleCommaIdx = i;
+      break;
+    }
+  }
+
+  const cleanExpr = (singleCommaIdx !== -1 ? expr.slice(0, singleCommaIdx) : expr).trim();
+  if (cleanExpr) {
+    return { setup, leftExpr: cleanExpr };
+  }
+
+  return { setup };
+}
+
 export function buildTestRunnerHarness(
   language: SupportedCodeLanguage,
   cases: import('../../shared/contracts.ts').CodingTestCase[],
@@ -143,29 +260,117 @@ export function buildTestRunnerHarness(
 
   if (language === 'python') {
     const caseBlocks = cases.map((tc, idx) => {
-      let assertCode = (tc.assertion ?? '').trim();
+      const rawCode = (tc.assertion ?? '').trim();
+      const parsed = splitEqualityAssertion(rawCode);
+      const setupBlock = parsed.setup ? parsed.setup.split(/\r?\n/).map((l) => `    ${l}`).join('\n') + '\n' : '';
+
+      if (parsed.leftExpr && parsed.rightExpr) {
+        return `
+# Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+try:
+${setupBlock}    _actual = ${parsed.leftExpr}
+    _expected = ${parsed.rightExpr}
+    if _actual == _expected:
+        print(f"__ADAPT_CASE__:${idx}:PASS:{_adapt_format(_actual)}")
+    else:
+        print(f"__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:{_adapt_format(_actual)}")
+except Exception as _e:
+    print(f"__ADAPT_CASE__:${idx}:FAIL:ERROR:{type(_e).__name__}: {_e}")
+`;
+      }
+
+      if (parsed.leftExpr) {
+        return `
+# Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+try:
+${setupBlock}    _actual = ${parsed.leftExpr}
+    if bool(_actual):
+        print(f"__ADAPT_CASE__:${idx}:PASS:{_adapt_format(_actual)}")
+    else:
+        print(f"__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:{_adapt_format(_actual)}")
+except Exception as _e:
+    print(f"__ADAPT_CASE__:${idx}:FAIL:ERROR:{type(_e).__name__}: {_e}")
+`;
+      }
+
+      let assertCode = rawCode;
       if (!assertCode.startsWith('assert') && !assertCode.includes('raise') && !assertCode.includes('if ')) {
         assertCode = `assert ${assertCode}`;
       }
+      const indentedAssert = assertCode.split(/\r?\n/).map((l) => `    ${l}`).join('\n');
       return `
 # Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
 try:
-    ${assertCode}
+${indentedAssert}
     print(f"__ADAPT_CASE__:${idx}:PASS:")
 except AssertionError as _e:
     _msg = str(_e) or "Assertion failed"
-    print(f"__ADAPT_CASE__:${idx}:FAIL:{_msg}")
+    print(f"__ADAPT_CASE__:${idx}:FAIL:ASSERTION:{_msg}")
 except Exception as _e:
-    print(f"__ADAPT_CASE__:${idx}:FAIL:{type(_e).__name__}: {_e}")
+    print(f"__ADAPT_CASE__:${idx}:FAIL:ERROR:{type(_e).__name__}: {_e}")
 `;
     }).join('\n');
 
-    return `\n# --- AdaptLearn Testcase Runner ---\n${caseBlocks}\n`;
+    return `
+# --- AdaptLearn Testcase Runner ---
+import json as _adapt_json
+def _adapt_format(v):
+    try:
+        if isinstance(v, (dict, list, int, float, bool)) or v is None:
+            return _adapt_json.dumps(v)
+        if isinstance(v, str):
+            return repr(v)
+    except Exception:
+        pass
+    return repr(v)
+
+${caseBlocks}
+`;
   }
 
   if (language === 'javascript' || language === 'typescript') {
     const caseBlocks = cases.map((tc, idx) => {
-      let assertCode = (tc.assertion ?? '').trim();
+      const rawCode = (tc.assertion ?? '').trim();
+      const parsed = splitEqualityAssertion(rawCode);
+      const setupBlock = parsed.setup ? `  ${parsed.setup}\n` : '';
+
+      if (parsed.leftExpr && parsed.rightExpr) {
+        return `
+// Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+try {
+${setupBlock}  const _actual = ${parsed.leftExpr};
+  const _expected = ${parsed.rightExpr};
+  const _eq = (_actual === _expected) || (JSON.stringify(_actual) === JSON.stringify(_expected));
+  if (_eq) {
+    console.log("__ADAPT_CASE__:${idx}:PASS:" + _adaptFormat(_actual));
+  } else {
+    console.log("__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:" + _adaptFormat(_actual));
+  }
+} catch (_e) {
+  const _msg = _e && _e.message ? _e.message : String(_e);
+  console.log("__ADAPT_CASE__:${idx}:FAIL:ERROR:" + _msg);
+}
+`;
+      }
+
+      if (parsed.leftExpr) {
+        return `
+// Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+try {
+${setupBlock}  const _actual = ${parsed.leftExpr};
+  if (Boolean(_actual)) {
+    console.log("__ADAPT_CASE__:${idx}:PASS:" + _adaptFormat(_actual));
+  } else {
+    console.log("__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:" + _adaptFormat(_actual));
+  }
+} catch (_e) {
+  const _msg = _e && _e.message ? _e.message : String(_e);
+  console.log("__ADAPT_CASE__:${idx}:FAIL:ERROR:" + _msg);
+}
+`;
+      }
+
+      let assertCode = rawCode;
       if (!assertCode.includes('throw') && !assertCode.includes('if ') && !assertCode.startsWith('assert')) {
         const expected = tc.expectedOutput ? JSON.stringify(tc.expectedOutput) : 'expected';
         assertCode = `if (!(${assertCode})) throw new Error("Expected " + ${expected});`;
@@ -177,12 +382,23 @@ try {
   console.log("__ADAPT_CASE__:${idx}:PASS:");
 } catch (_e) {
   const _msg = _e && _e.message ? _e.message : String(_e);
-  console.log("__ADAPT_CASE__:${idx}:FAIL:" + _msg);
+  console.log("__ADAPT_CASE__:${idx}:FAIL:ERROR:" + _msg);
 }
 `;
     }).join('\n');
 
-    return `\n// --- AdaptLearn Testcase Runner ---\n${caseBlocks}\n`;
+    return `
+// --- AdaptLearn Testcase Runner ---
+function _adaptFormat(v) {
+  try {
+    return JSON.stringify(v);
+  } catch (e) {
+    return String(v);
+  }
+}
+
+${caseBlocks}
+`;
   }
 
   return fallbackHarness ?? '';
@@ -196,15 +412,34 @@ export function parseTestCaseResults(
   exitCode: number,
 ): { testResults: import('../../shared/contracts.ts').TestCaseResult[]; cleanStdout: string; passed: boolean } {
   const cleanLines: string[] = [];
-  const statusMap = new Map<number, { passed: boolean; error?: string }>();
+  const statusMap = new Map<number, { passed: boolean; actualOutput?: string; error?: string }>();
 
   for (const line of stdout.split(/\r?\n/)) {
     const match = line.match(/^__ADAPT_CASE__:(\d+):(PASS|FAIL)(?::(.*))?$/);
     if (match) {
       const idx = parseInt(match[1], 10);
       const passed = match[2] === 'PASS';
-      const error = match[3] ? match[3].trim() : undefined;
-      statusMap.set(idx, { passed, error });
+      const payload = match[3] !== undefined ? match[3].trim() : '';
+
+      let actualOutput: string | undefined;
+      let error: string | undefined;
+
+      if (passed) {
+        actualOutput = payload || undefined;
+      } else {
+        if (payload.startsWith('WRONG_ANSWER:')) {
+          actualOutput = payload.slice('WRONG_ANSWER:'.length).trim();
+          error = undefined;
+        } else if (payload.startsWith('ERROR:')) {
+          error = payload.slice('ERROR:'.length).trim();
+        } else if (payload.startsWith('ASSERTION:')) {
+          error = payload.slice('ASSERTION:'.length).trim();
+        } else {
+          error = payload || 'Assertion failed';
+        }
+      }
+
+      statusMap.set(idx, { passed, actualOutput, error });
     } else {
       cleanLines.push(line);
     }
@@ -215,26 +450,27 @@ export function parseTestCaseResults(
   if (statusMap.size > 0) {
     const testResults: import('../../shared/contracts.ts').TestCaseResult[] = cases.map((tc, idx) => {
       const res = statusMap.get(idx);
+      const isHidden = Boolean(tc.isHidden);
       if (res) {
         return {
           testCaseId: tc.id,
-          name: tc.description || `Case ${idx + 1}`,
+          name: isHidden ? `Private Case ${idx + 1}` : (tc.description || `Case ${idx + 1}`),
           passed: res.passed,
-          input: tc.input,
-          expectedOutput: tc.expectedOutput,
-          actualOutput: res.passed ? tc.expectedOutput : undefined,
-          error: res.error,
-          isHidden: tc.isHidden,
+          input: isHidden ? undefined : tc.input,
+          expectedOutput: isHidden ? undefined : tc.expectedOutput,
+          actualOutput: isHidden ? undefined : (res.actualOutput !== undefined ? res.actualOutput : (res.passed ? tc.expectedOutput : undefined)),
+          error: isHidden ? (res.error?.startsWith('Assertion') ? undefined : (res.error ? 'Runtime exception on private test case' : undefined)) : res.error,
+          isHidden,
         };
       }
       return {
         testCaseId: tc.id,
-        name: tc.description || `Case ${idx + 1}`,
+        name: isHidden ? `Private Case ${idx + 1}` : (tc.description || `Case ${idx + 1}`),
         passed: false,
-        input: tc.input,
-        expectedOutput: tc.expectedOutput,
-        error: stderr || 'Execution stopped before reaching this test case',
-        isHidden: tc.isHidden,
+        input: isHidden ? undefined : tc.input,
+        expectedOutput: isHidden ? undefined : tc.expectedOutput,
+        error: isHidden ? 'Execution stopped before reaching this private case' : (stderr || 'Execution stopped before reaching this test case'),
+        isHidden,
       };
     });
 
@@ -244,16 +480,19 @@ export function parseTestCaseResults(
 
   // Fallback for raw harness executions
   const overallPassed = rawStatus === 'passed' && exitCode === 0;
-  const testResults: import('../../shared/contracts.ts').TestCaseResult[] = cases.map((tc, idx) => ({
-    testCaseId: tc.id,
-    name: tc.description || `Case ${idx + 1}`,
-    passed: overallPassed,
-    input: tc.input,
-    expectedOutput: tc.expectedOutput,
-    actualOutput: overallPassed ? tc.expectedOutput : undefined,
-    error: overallPassed ? undefined : (stderr || 'Execution failed'),
-    isHidden: tc.isHidden,
-  }));
+  const testResults: import('../../shared/contracts.ts').TestCaseResult[] = cases.map((tc, idx) => {
+    const isHidden = Boolean(tc.isHidden);
+    return {
+      testCaseId: tc.id,
+      name: isHidden ? `Private Case ${idx + 1}` : (tc.description || `Case ${idx + 1}`),
+      passed: overallPassed,
+      input: isHidden ? undefined : tc.input,
+      expectedOutput: isHidden ? undefined : tc.expectedOutput,
+      actualOutput: isHidden ? undefined : (overallPassed ? tc.expectedOutput : undefined),
+      error: isHidden ? (overallPassed ? undefined : 'Execution failed on private case') : (overallPassed ? undefined : (stderr || 'Execution failed')),
+      isHidden,
+    };
+  });
 
   return { testResults, cleanStdout, passed: overallPassed };
 }

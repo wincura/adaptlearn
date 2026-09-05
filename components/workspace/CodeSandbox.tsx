@@ -63,6 +63,113 @@ function getLanguageExtension(lang: SupportedCodeLanguage) {
   }
 }
 
+export function formatPromptMarkdown(prompt: string): string {
+  if (!prompt) return '';
+  let text = prompt.trim();
+
+  // Normalize line endings
+  text = text.replace(/\r\n/g, '\n');
+
+  // Convert common section keywords into clean, professional Markdown H3 headings (no emojis)
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Task(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Task\n\n');
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Problem Statement(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Problem Statement\n\n');
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Input\s*[\/&]\s*Output(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Input & Output Format\n\n');
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Constraints?(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Constraints\n\n');
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Examples?(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Examples\n\n');
+  text = text.replace(/(?:^|\n)(?:#{1,4}\s*)?(?:[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*)?Notes?(?:\s*:)?\s*(?=\n|$)/gui, '\n\n### Notes\n\n');
+
+  // Strip any remaining emojis from Markdown headings
+  text = text.replace(/(^|\n)(#{1,4}\s*)[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/gu, '$1$2');
+
+  // Format function signatures: e.g. "Implement the function my_func(a: int) -> int"
+  text = text.replace(/(Implement (?:the )?function\s+)([a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)(?:\s*->\s*[^\n.]+)?)/gi, '$1`$2`');
+
+  // Format single-quoted identifiers as inline code (e.g. 'lst_changed' -> `lst_changed`)
+  text = text.replace(/(?<!`)(?:'([a-zA-Z_][a-zA-Z0-9_]*)')(?!`)/g, '`$1`');
+
+  // Process line by line to add bullet points and blockquotes in appropriate sections
+  const rawLines = text.split('\n');
+  const resultLines: string[] = [];
+  let currentSection = '';
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const rawLine = rawLines[i];
+    const line = rawLine.trim();
+
+    if (!line) {
+      resultLines.push('');
+      continue;
+    }
+
+    if (line.startsWith('### Task') || line.startsWith('### Problem Statement')) {
+      currentSection = 'task';
+      resultLines.push(line);
+      continue;
+    } else if (line.startsWith('### Constraints')) {
+      currentSection = 'constraints';
+      resultLines.push(line);
+      continue;
+    } else if (line.startsWith('### Input & Output')) {
+      currentSection = 'io';
+      resultLines.push(line);
+      continue;
+    } else if (line.startsWith('### Examples')) {
+      currentSection = 'examples';
+      resultLines.push(line);
+      continue;
+    } else if (line.startsWith('###')) {
+      currentSection = '';
+      resultLines.push(line);
+      continue;
+    }
+
+    if (currentSection === 'constraints') {
+      if (!line.startsWith('-') && !line.startsWith('*') && !/^\d+\./.test(line)) {
+        resultLines.push(`- ${line}`);
+        continue;
+      }
+    }
+
+    if (currentSection === 'io') {
+      if (line.startsWith('Input:') || line.startsWith('Output:')) {
+        const colon = line.indexOf(':');
+        resultLines.push(`**${line.slice(0, colon + 1)}** ${line.slice(colon + 1).trim()}`);
+        continue;
+      }
+      if (!line.startsWith('-') && !line.startsWith('*') && (line.startsWith('`') || line.includes(':'))) {
+        resultLines.push(`- ${line}`);
+        continue;
+      }
+    }
+
+    if (currentSection === 'task') {
+      if (
+        !line.startsWith('-') &&
+        !line.startsWith('*') &&
+        !line.startsWith('`') &&
+        !line.toLowerCase().startsWith('implement') &&
+        !line.toLowerCase().startsWith('inside') &&
+        (line.startsWith('the ') || line.startsWith('whether ') || line.startsWith('how ') || line.startsWith('return ') || line.startsWith('must '))
+      ) {
+        resultLines.push(`- ${line}`);
+        continue;
+      }
+    }
+
+    if (currentSection === 'examples') {
+      if (line.startsWith('Input:') || line.startsWith('Output:') || line.startsWith('Explanation:')) {
+        const colon = line.indexOf(':');
+        resultLines.push(`> **${line.slice(0, colon + 1)}** ${line.slice(colon + 1).trim()}`);
+        continue;
+      }
+    }
+
+    resultLines.push(line);
+  }
+
+  return resultLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeSandboxProps) {
   const [mounted, setMounted] = useState(false);
   const [code, setCode] = useState(challenge.starterCode);
@@ -235,7 +342,7 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
       {/* Challenge Description */}
       <div className="sandbox-prompt-box">
         <div className="sandbox-prompt-text">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{challenge.prompt}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{formatPromptMarkdown(challenge.prompt)}</ReactMarkdown>
         </div>
 
         {/* Test Cases preview: show public test cases + note about hidden private cases */}
@@ -475,7 +582,7 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                       type="button"
                       className={`testcase-chip ${selectedCaseIndex === idx ? 'active' : ''} ${
                         tc.passed ? 'passed' : 'failed'
-                      }`}
+                      } ${tc.isHidden ? 'private-chip' : ''}`}
                       onClick={() => setSelectedCaseIndex(idx)}
                     >
                       <span className="testcase-chip-icon">
@@ -484,6 +591,9 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                       <span>
                         {tc.isHidden ? `Private Case ${idx + 1}` : `Case ${idx + 1}`}
                       </span>
+                      {tc.isHidden && (
+                        <LockOutlined style={{ fontSize: 13, marginLeft: 4, opacity: 0.7 }} />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -494,8 +604,9 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                     <div className="testcase-detail-header">
                       <div className="testcase-detail-title">
                         <strong>
-                          {activeTestCase.isHidden ? 'Private Edge Case' : 'Public Test Case'}:{' '}
-                          {activeTestCase.name}
+                          {activeTestCase.isHidden
+                            ? `Private Test Case ${selectedCaseIndex + 1}`
+                            : `Public Case ${selectedCaseIndex + 1}: ${activeTestCase.name}`}
                         </strong>
                         <div className="testcase-badges">
                           {activeTestCase.isHidden ? (
@@ -516,36 +627,103 @@ export function CodeSandbox({ challenge, learnerId, goalId, onCompleted }: CodeS
                       </div>
                     </div>
 
-                    <div className="testcase-io-grid">
-                      {activeTestCase.input && (
-                        <div className="testcase-io-block">
-                          <span className="testcase-io-label">Input:</span>
-                          <pre className="testcase-io-pre">{activeTestCase.input}</pre>
+                    {activeTestCase.isHidden ? (
+                      <div className="private-testcase-card">
+                        <div className="private-card-header">
+                          <div className="private-lock-circle">
+                            <LockOutlined />
+                          </div>
+                          <div>
+                            <h4>Private Edge Case ({selectedCaseIndex + 1})</h4>
+                            <p>
+                              The input parameters, expected outputs, and assertion checks for this test case are concealed to verify your solution's handling of unseen boundary conditions.
+                            </p>
+                          </div>
                         </div>
-                      )}
 
-                      {activeTestCase.expectedOutput && (
-                        <div className="testcase-io-block">
-                          <span className="testcase-io-label">Expected Output:</span>
-                          <pre className="testcase-io-pre">{activeTestCase.expectedOutput}</pre>
+                        <div
+                          className={`private-result-banner ${
+                            activeTestCase.passed ? 'passed' : 'failed'
+                          }`}
+                        >
+                          <span className="private-result-icon">
+                            {activeTestCase.passed ? '✓' : '✗'}
+                          </span>
+                          <div>
+                            <strong>
+                              {activeTestCase.passed
+                                ? 'Test Case Passed'
+                                : 'Test Case Failed (Wrong Answer)'}
+                            </strong>
+                            <p>
+                              {activeTestCase.passed
+                                ? 'Your solution verified this hidden scenario successfully.'
+                                : 'Your code produced an incorrect result or failed an assertion for this hidden test case. Review edge scenarios such as zero, negative numbers, empty sequences, or boundary values.'}
+                            </p>
+                          </div>
                         </div>
-                      )}
 
-                      <div
-                        className={`testcase-io-block ${
-                          activeTestCase.passed ? 'actual-success' : 'actual-fail'
-                        }`}
-                      >
-                        <span className="testcase-io-label">
-                          {activeTestCase.passed ? 'Actual Output:' : 'Error / Difference:'}
-                        </span>
-                        <pre className="testcase-io-pre">
-                          {activeTestCase.passed
-                            ? activeTestCase.actualOutput || activeTestCase.expectedOutput || 'Passed assertions'
-                            : activeTestCase.error || 'Failed assertion'}
-                        </pre>
+                        {activeTestCase.error && (
+                          <div className="testcase-io-block actual-fail" style={{ marginTop: 12 }}>
+                            <span className="testcase-io-label">Execution Diagnostics:</span>
+                            <pre className="testcase-io-pre">{activeTestCase.error}</pre>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    ) : (
+                      <div className="testcase-io-grid">
+                        {activeTestCase.input && (
+                          <div className="testcase-io-block">
+                            <span className="testcase-io-label">Input:</span>
+                            <pre className="testcase-io-pre">{activeTestCase.input}</pre>
+                          </div>
+                        )}
+
+                        {activeTestCase.expectedOutput && (
+                          <div className="testcase-io-block">
+                            <span className="testcase-io-label">Expected Output:</span>
+                            <pre className="testcase-io-pre">{activeTestCase.expectedOutput}</pre>
+                          </div>
+                        )}
+
+                        {/* User's Output */}
+                        {activeTestCase.actualOutput !== undefined ? (
+                          <div
+                            className={`testcase-io-block ${
+                              activeTestCase.passed ? 'actual-success' : 'actual-fail'
+                            }`}
+                          >
+                            <span className="testcase-io-label">Your Output:</span>
+                            <pre className="testcase-io-pre">{activeTestCase.actualOutput}</pre>
+                          </div>
+                        ) : activeTestCase.passed ? (
+                          <div className="testcase-io-block actual-success">
+                            <span className="testcase-io-label">Your Output:</span>
+                            <pre className="testcase-io-pre">
+                              {activeTestCase.expectedOutput || 'Passed assertions'}
+                            </pre>
+                          </div>
+                        ) : null}
+
+                        {/* Error details if a runtime exception occurred */}
+                        {!activeTestCase.passed && activeTestCase.error && (
+                          <div className="testcase-io-block actual-fail">
+                            <span className="testcase-io-label">
+                              {activeTestCase.actualOutput !== undefined ? 'Error Details:' : 'Your Output / Error:'}
+                            </span>
+                            <pre className="testcase-io-pre">{activeTestCase.error}</pre>
+                          </div>
+                        )}
+
+                        {/* Fallback for failed case with no output captured */}
+                        {!activeTestCase.passed && activeTestCase.actualOutput === undefined && !activeTestCase.error && (
+                          <div className="testcase-io-block actual-fail">
+                            <span className="testcase-io-label">Your Output:</span>
+                            <pre className="testcase-io-pre">No output returned</pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
