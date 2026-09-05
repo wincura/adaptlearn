@@ -82,6 +82,9 @@ jobs:
         run: aws sts get-caller-identity
 
       - name: Deploy infrastructure and application
+        env:
+          SANDBOX_EXECUTOR: e2b
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
         run: |
           test -x scripts/deploy-aws.sh
           scripts/deploy-aws.sh

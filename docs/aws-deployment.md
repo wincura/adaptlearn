@@ -10,6 +10,14 @@ The `infra/` CDK application provisions AdaptLearn's private static website buck
 
 ## Deploy
 
+### E2B sandbox credential
+
+`keys/key.txt` is git-ignored and is never included in the Lambda bundle. The deployment script reads its `E2B_API_KEY=e2b_...` entry locally and passes it to the Lambda environment. Alternatively, export `E2B_API_KEY` before deploying.
+
+For GitHub Actions, add an environment secret named `E2B_API_KEY` to the `aws-production` environment. The workflow injects that secret during deployment. Do not commit this key or add it to a GitHub repository variable.
+
+This hackathon-oriented setup stores the value as a Lambda environment variable. For a production deployment, move it to AWS Secrets Manager and grant the Lambda permission to read that secret.
+
 From the repository root:
 
 ```bash

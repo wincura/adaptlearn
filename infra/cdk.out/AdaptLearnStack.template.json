@@ -680,6 +680,8 @@
       "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
       "AI_PROVIDER": "bedrock",
       "BEDROCK_MODEL_ID": "us.amazon.nova-2-lite-v1:0",
+      "SANDBOX_EXECUTOR": "e2b",
+      "E2B_API_KEY": "e2b_98da7c10f49ff1c15f5b7f47d40b57a6158b81ad",
       "WORKSPACE_REPOSITORY": "dynamodb",
       "WORKSPACE_TABLE": {
        "Ref": "WorkspaceTable68AC2584"

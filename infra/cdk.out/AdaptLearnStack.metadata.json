@@ -32,7 +32,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:242:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:247:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -46,7 +46,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:243:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:248:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -60,7 +60,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:244:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:249:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -74,7 +74,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:245:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:250:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -88,7 +88,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:246:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:251:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -102,7 +102,7 @@
     {
       "type": "aws:cdk:creationStack",
       "data": [
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:247:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:252:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -250,7 +250,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new HttpApi2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:111:21)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:21)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -265,7 +265,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Distribution2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:124:26)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:129:26)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -280,7 +280,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new BucketDeployment2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:160:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)"
       ]
     }
@@ -384,7 +384,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new HttpApi2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:111:21)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:21)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node, ts-node..."
       ]
@@ -401,7 +401,7 @@
         ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
         "Array.map (:)",
         "...WrappedClass.<anonymous> in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)"
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:121:13)"
       ]
     }
   ],
@@ -416,7 +416,7 @@
         ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
         "Array.map (:)",
         "...WrappedClass.<anonymous> in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:121:13)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node..."
       ]
@@ -433,7 +433,7 @@
         ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
         "Array.map (:)",
         "...WrappedClass.<anonymous> in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:117:13)"
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:122:13)"
       ]
     }
   ],
@@ -448,7 +448,7 @@
         ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
         "Array.map (:)",
         "...WrappedClass.<anonymous> in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:117:13)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:122:13)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node..."
       ]
@@ -463,7 +463,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new BucketDeployment2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:160:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node..."
       ]
@@ -478,7 +478,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new BucketDeployment2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:155:5)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:160:5)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals, ts-node..."
       ]
@@ -521,7 +521,7 @@
         ".../home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/node_modules/aws-cdk-lib/aws-apigatewayv2/lib/http/api.js:1:96 in aws-cdk-lib...",
         "Array.map (:)",
         "...WrappedClass.<anonymous> in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:116:13)"
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:121:13)"
       ]
     }
   ],
@@ -534,7 +534,7 @@
       "type": "aws:cdk:creationStack",
       "data": [
         "...new Distribution2 in aws-cdk-lib...",
-        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:124:26)",
+        "new AdaptLearnStack (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/lib/adaptlearn-stack.ts:129:26)",
         "<anonymous> (/home/zhixiang/hackathon/simplifynext_2026/adaptlearn/infra/bin/adaptlearn.ts:6:1)",
         "...node internals..."
       ]

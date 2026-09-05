@@ -86,6 +86,11 @@ export class AdaptLearnStack extends Stack {
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
         AI_PROVIDER: 'bedrock',
         BEDROCK_MODEL_ID: novaInferenceProfileId,
+        // E2B runs outside AWS, so its credential must be supplied at deploy
+        // time. Do not expect the git-ignored local keys/key.txt to exist in
+        // the Lambda bundle.
+        SANDBOX_EXECUTOR: process.env.SANDBOX_EXECUTOR ?? 'e2b',
+        E2B_API_KEY: process.env.E2B_API_KEY ?? '',
         WORKSPACE_REPOSITORY: 'dynamodb',
         WORKSPACE_TABLE: workspaceTable.tableName,
         KNOWLEDGE_REPOSITORY: 'local-filesystem',
