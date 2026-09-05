@@ -1,12 +1,12 @@
 'use client';
 
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { AddRounded, AutoAwesomeRounded, HubRounded, MemoryRounded } from '@mui/icons-material';
 import { Snackbar } from '@mui/material';
-import Image from 'next/image';
 import { api } from '../../lib/api';
+import type { CourseTemplate } from '../../lib/course-catalog';
 import type { AgentId, KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningGoal, LearningMaterial, LearningWorkspace, PlacementResult, PublicPlacementAssessment, ResearchSuggestion } from '../../shared/contracts';
 import { LearningChat } from './LearningChat';
+import { CourseDetailHeader, CoursesPage, ProfilePage, ProgressPage, ReferenceShell, type PageView, type StudioView, WorkspacePage } from './ReferencePages';
 import { DocumentsDialog, GoalDialog, GoalInput, LessonRequestDialog, MaterialDialog, MemoryDialog, PlacementDialog } from './WorkspaceDialogs';
 import { WorkspaceCanvas } from './WorkspaceCanvas';
 
@@ -28,11 +28,14 @@ const summarize = (workspace: LearningWorkspace): LearnerWorkspaceSummary => ({
 export function LearningStudio() {
   const [workspace, setWorkspace] = useState<LearningWorkspace>(offlineWorkspace);
   const [profiles, setProfiles] = useState<LearnerWorkspaceSummary[]>([]);
+  const [view, setView] = useState<StudioView>('workspace');
+  const [detailReturnView, setDetailReturnView] = useState<PageView>('workspace');
   const [online, setOnline] = useState(false);
   const [aiConnected, setAIConnected] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentId>();
   const [goalOpen, setGoalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<LearningGoal>();
+  const [enrollmentTemplate, setEnrollmentTemplate] = useState<CourseTemplate>();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [lessonRequestOpen, setLessonRequestOpen] = useState(false);
@@ -112,6 +115,7 @@ export function LearningStudio() {
       goalSaved = true;
       const newGoal = current.goals.find((goal) => goal.status === 'active');
       if (!newGoal) throw new Error('The new active goal could not be found.');
+      if (input.courseTemplateId) { setDetailReturnView('courses'); setView('course-detail'); }
       setActiveAgent('assessor');
       const assessment = await api.createPlacement(learnerId, newGoal.id);
       setPlacementResult(undefined);
@@ -224,6 +228,20 @@ export function LearningStudio() {
     finally { setBusy(false); }
   };
 
+  const openGoalDetail = async (goalId: string, returnView: PageView) => {
+    setDetailReturnView(returnView);
+    if (goalId !== activeGoal?.id) await activateGoal(goalId);
+    setView('course-detail');
+  };
+
+  const openTemplate = (template: CourseTemplate) => {
+    const enrolledGoal = workspace.goals.find((goal) => goal.courseTemplateId === template.id);
+    if (enrolledGoal) { void openGoalDetail(enrolledGoal.id, 'courses'); return; }
+    setEnrollmentTemplate(template);
+    setEditingGoal(undefined);
+    setGoalOpen(true);
+  };
+
   const requestLesson = async () => {
     if (!activeGoal) { setGoalOpen(true); return; }
     if (!completedPlacement) {
@@ -303,8 +321,14 @@ export function LearningStudio() {
     finally { setBusy(false); }
   };
 
-  const openNewGoal = () => { setEditingGoal(undefined); setGoalOpen(true); };
-  const openGoalEditor = () => { if (activeGoal) { setEditingGoal(activeGoal); setGoalOpen(true); } };
+  const openNewGoal = () => { setEditingGoal(undefined); setEnrollmentTemplate(undefined); setGoalOpen(true); };
+  const openGoalEditor = () => { if (activeGoal) { setEditingGoal(activeGoal); setEnrollmentTemplate(undefined); setGoalOpen(true); } };
 
-  return <main className="studio-shell"><aside className="studio-nav"><div className="studio-logo"><Image src="/brand/adaptlearn-logo.png" alt="AdaptLearn" width={1536} height={1024} priority /></div><nav><button className="active"><HubRounded /> Workspace</button><button onClick={() => setMemoryOpen(true)}><MemoryRounded /> Profiles &amp; progress</button></nav><button className="nav-profile" onClick={() => setMemoryOpen(true)}><span>{workspace.profile.displayName.slice(0,2).toUpperCase()}</span><div><strong>{workspace.profile.displayName}</strong><small>{profiles.length} learner {profiles.length === 1 ? 'profile' : 'profiles'}</small></div></button></aside><section className="studio-main"><header className="studio-header"><div><p>ADAPTLEARN · PERSONAL WORKSPACE</p><h2>Build only what helps you learn</h2></div><div><span className={`connection-pill ${online && aiConnected ? 'online' : ''}`}>● {online ? aiConnected ? 'AI connected' : 'AI key unavailable' : 'Service offline'}</span><button onClick={openNewGoal}><AddRounded /> {activeGoal ? 'New goal' : 'Add goal'}</button><button className="whats-new" disabled={!activeGoal || Boolean(activeAgent)} onClick={() => void runResearch()}><AutoAwesomeRounded /> What&apos;s new?</button></div></header><WorkspaceCanvas workspace={workspace} activeAgent={activeAgent} onAddGoal={openNewGoal} onActivateGoal={(goalId) => void activateGoal(goalId)} onEditGoal={openGoalEditor} onDeleteGoal={() => void deleteGoal()} onDocuments={() => setDocumentsOpen(true)} onMemory={() => setMemoryOpen(true)} onCreateLesson={() => void requestLesson()} onAgentAction={(agent) => void runAgentAction(agent)} onOpenMaterial={setMaterial} onAcceptSuggestion={(suggestion) => void acceptSuggestion(suggestion)} onUpload={() => fileInput.current?.click()} /></section><LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} workspace={workspace} profiles={profiles} onClose={() => setMemoryOpen(false)} onSwitch={switchProfile} onCreate={createProfile} onDelete={deleteProfile} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} learnerId={learnerId} onWorkspaceUpdated={applyWorkspace} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></main>;
+  const page = view === 'workspace' ? <WorkspacePage workspace={workspace} onNavigate={setView} onAddGoal={openNewGoal} onOpenGoal={openGoalDetail} />
+    : view === 'courses' ? <CoursesPage workspace={workspace} onOpenGoal={openGoalDetail} onOpenTemplate={openTemplate} />
+    : view === 'progress' ? <ProgressPage workspace={workspace} />
+    : view === 'profile' ? <ProfilePage workspace={workspace} onManageProfiles={() => setMemoryOpen(true)} onSaveProfile={saveProfile} onOpenGoal={openGoalDetail} />
+    : <div className="reference-course-detail"><CourseDetailHeader workspace={workspace} online={online} aiConnected={aiConnected} onBack={() => setView(detailReturnView)} onAddGoal={openNewGoal} /><WorkspaceCanvas workspace={workspace} activeAgent={activeAgent} onAddGoal={openNewGoal} onActivateGoal={(goalId) => void activateGoal(goalId)} onEditGoal={openGoalEditor} onDeleteGoal={() => void deleteGoal()} onDocuments={() => setDocumentsOpen(true)} onMemory={() => setMemoryOpen(true)} onCreateLesson={() => void requestLesson()} onAgentAction={(agent) => void runAgentAction(agent)} onOpenMaterial={setMaterial} onAcceptSuggestion={(suggestion) => void acceptSuggestion(suggestion)} onUpload={() => fileInput.current?.click()} /></div>;
+
+  return <ReferenceShell active={view} workspace={workspace} onNavigate={setView} onManageProfiles={() => setMemoryOpen(true)}>{page}<LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} editing={Boolean(editingGoal)} templateName={enrollmentTemplate?.title} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : enrollmentTemplate ? { title: enrollmentTemplate.title, motivation: enrollmentTemplate.motivation, targetOutcome: enrollmentTemplate.targetOutcome, courseTemplateId: enrollmentTemplate.id } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); setEnrollmentTemplate(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} workspace={workspace} profiles={profiles} onClose={() => setMemoryOpen(false)} onSwitch={switchProfile} onCreate={createProfile} onDelete={deleteProfile} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} learnerId={learnerId} onWorkspaceUpdated={applyWorkspace} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></ReferenceShell>;
 }
