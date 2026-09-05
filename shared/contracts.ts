@@ -9,6 +9,7 @@ export type LearnerProfile = {
 export type LearningGoal = {
   id: string;
   title: string;
+  courseTemplateId?: string;
   motivation: string;
   targetOutcome: string;
   status: 'active' | 'paused' | 'complete';

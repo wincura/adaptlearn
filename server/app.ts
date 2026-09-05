@@ -31,6 +31,7 @@ const profileSchema = z.object({
 });
 const goalSchema = z.object({
   title: z.string().trim().min(2).max(160),
+  courseTemplateId: z.string().trim().min(1).max(100).optional(),
   motivation: z.string().trim().max(1000).default(''),
   targetOutcome: z.string().trim().max(1000).default(''),
   background: z.string().trim().max(1500).default(''),
@@ -104,7 +105,7 @@ export function createApp(dependencies: AppDependencies = {}) {
       current.profile.preferences = input.preferences;
       current.goals.forEach((goal) => { if (goal.status === 'active') goal.status = 'paused'; });
       current.goals.push({
-        id: crypto.randomUUID(), title: input.title, motivation: input.motivation, targetOutcome: input.targetOutcome,
+        id: crypto.randomUUID(), courseTemplateId: input.courseTemplateId, title: input.title, motivation: input.motivation, targetOutcome: input.targetOutcome,
         status: 'active', createdAt: new Date().toISOString(),
       });
     });
