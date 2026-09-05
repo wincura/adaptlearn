@@ -48,7 +48,12 @@ server/
   ai/contracts.ts                  Provider-neutral model contract
   ai/provider.ts                   Model provider registry
   ai/openai-client.ts              OpenAI Responses adapter
-  runtime/providers.ts             Storage and knowledge composition root
+  sandbox/contracts.ts             Provider-neutral sandbox execution contract
+  sandbox/local-executor.ts        Local process execution adapter (Node/Python/SQL)
+  sandbox/e2b-executor.ts          Cloud microVM execution adapter (@e2b/code-interpreter)
+  sandbox/topic-detector.ts        Selective topic classifier (code vs non-code)
+  sandbox/code-evaluator.ts        Test generation & Socratic evaluation engine
+  runtime/providers.ts             Storage, knowledge, and sandbox composition root
   app.ts                           Injectable Express application factory
   index.ts                         Local process listener only
 shared/contracts.ts                Shared domain contracts
@@ -79,6 +84,7 @@ The store implements `WorkspaceRepository`. Goals are durable records and exactl
 | `WorkspaceRepository` → local JSON | S3 repository with conditional ETag writes; DynamoDB if write concurrency grows |
 | `KnowledgeRepository` → local files | S3 ingestion plus Bedrock Knowledge Bases `Retrieve`, metadata filtering, and optional reranking |
 | `AIProvider` → OpenAI adapter | Bedrock model adapter |
+| `SandboxExecutor` → local process runner | E2B Firecracker MicroVMs over TLS API (managed cloud microVMs from AWS Lambda) |
 | In-process orchestration | Step Functions or AgentCore workflow |
 | Startup research call | EventBridge-triggered refresh plus on-demand endpoint |
 

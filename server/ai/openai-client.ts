@@ -138,27 +138,93 @@ export const openAIProvider: AIProvider = {
 };
 
 export function parseJsonObject<T>(raw: string): T {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
-  const source = (fenced ?? raw).trim();
-  const start = source.indexOf('{');
-  if (start < 0) throw new Error('The model response did not contain a JSON object.');
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < source.length; index += 1) {
-    const character = source[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (character === '\\') escaped = true;
-      else if (character === '"') inString = false;
-      continue;
+  const trimmed = raw.trim();
+
+  // 1. Quick path: raw is already valid JSON
+  try {
+    const direct = JSON.parse(trimmed);
+    if (direct && typeof direct === 'object' && !Array.isArray(direct)) {
+      return direct as T;
     }
-    if (character === '"') inString = true;
-    else if (character === '{') depth += 1;
-    else if (character === '}') {
-      depth -= 1;
-      if (depth === 0) return JSON.parse(source.slice(start, index + 1)) as T;
+  } catch {
+    // Fall through to extraction
+  }
+
+  // 2. If wrapped in outer markdown fence (e.g. ```json ... ``` or ``` ... ```)
+  let source = trimmed;
+  if (source.startsWith('```')) {
+    const firstNewline = source.indexOf('\n');
+    const lastFence = source.lastIndexOf('```');
+    if (firstNewline !== -1 && lastFence > firstNewline) {
+      const inner = source.slice(firstNewline + 1, lastFence).trim();
+      try {
+        const parsed = JSON.parse(inner);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as T;
+        }
+      } catch {
+        // Fall through with inner as source for bracket extraction
+      }
+      source = inner;
     }
   }
-  throw new Error('The model response contained incomplete JSON.');
+
+  // 3. Bracket-matching loop that finds the outermost JSON object
+  let searchStart = 0;
+  let encounteredIncomplete = false;
+  while (searchStart < source.length) {
+    const start = source.indexOf('{', searchStart);
+    if (start < 0) break;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let closed = false;
+
+    for (let index = start; index < source.length; index += 1) {
+      const character = source[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === '\\') {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (character === '"') {
+        inString = true;
+      } else if (character === '{') {
+        depth += 1;
+      } else if (character === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          closed = true;
+          try {
+            const candidate = JSON.parse(source.slice(start, index + 1));
+            if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+              return candidate as T;
+            }
+          } catch {
+            // Not a valid JSON object, keep searching from next index
+            break;
+          }
+        }
+      }
+    }
+
+    if (!closed && depth > 0) {
+      encounteredIncomplete = true;
+    }
+
+    searchStart = start + 1;
+  }
+
+  if (encounteredIncomplete) {
+    throw new Error('The model response contained incomplete JSON.');
+  }
+
+  throw new Error('The model response did not contain a JSON object.');
 }

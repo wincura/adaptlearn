@@ -30,17 +30,17 @@ The OpenAI client reads `OPENAI_API_KEY` and `OPENAI_MODEL` from `keys/key.txt` 
 - Placement-gated lessons use both the overall level and dimension-level strengths and focus areas to shape future content
 - PDF, DOCX, TXT, Markdown, and CSV documentation ingestion with local text extraction, a document browser, deletion, and structured relevant-passage retrieval for proprietary tools
 - Builder-generated practical-lab specifications based on the learner's goal and available Teacher context
+- Interactive AI Code Sandbox and Socratic Test Generator for programming and data topics; executes code in an isolated local process or cloud E2B microVM, tests hidden assertions, and delivers Socratic guidance without revealing the answer (see [docs/code-sandbox.md](docs/code-sandbox.md)). Non-code topics (human languages, management, humanities) remain clean and do not show code executors
 - Manual “What’s new?” searches using OpenAI's web-search tool: technical and software goals receive relevant feature/change alerts or uncovered topics, while human-language and stable-skill goals receive need-based refreshers or next topics rather than generic product or exam news; every suggestion remains optional until explicitly approved
 
 ## Agent boundaries
 
 The application routes every conversational turn through the Overall Coordinator. Each specialist owns a narrow class of output in separate backend modules under `server/agents/`. These implementation details are intentionally hidden from the learner-facing interface.
 
-See [docs/architecture.md](docs/architecture.md) for the detailed ownership map and [docs/aws-migration.md](docs/aws-migration.md) for the Lambda, S3, Bedrock, AgentCore, RAG, and Knowledge Bases adapter plan.
+See [docs/architecture.md](docs/architecture.md) for the detailed ownership map, [docs/code-sandbox.md](docs/code-sandbox.md) for the sandbox and Socratic test generator guide, and [docs/aws-migration.md](docs/aws-migration.md) for the Lambda, S3, Bedrock, AgentCore, RAG, and Knowledge Bases adapter plan.
 
 ## Current limitations
 
-- Builder outputs are lab specifications, not live executable sandboxes.
 - Text extraction is local, but relevant excerpts from uploaded documents are sent to the configured AI provider when a lesson is created. Upload only documentation you are authorized to process that way.
 - Scanned/image-only PDFs require OCR, which is not implemented. Legacy `.doc` files are not supported; save them as `.docx`, PDF, or text first.
 - Document retrieval uses lightweight local chunk ranking rather than embeddings or a vector database. The contract already returns scored passages, source provenance, and learner/goal filter metadata so a Bedrock Knowledge Bases adapter can replace it without changing the Teacher.
