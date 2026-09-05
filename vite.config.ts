@@ -48,8 +48,14 @@ export default defineConfig(async () => {
     css: { postcss: { plugins: [tailwindcss()] } },
     server: {
       proxy: {
-        '/api': 'http://localhost:8787',
-        '/health': 'http://localhost:8787',
+        '/api': {
+          target: 'http://127.0.0.1:8787',
+          changeOrigin: true,
+        },
+        '/health': {
+          target: 'http://127.0.0.1:8787',
+          changeOrigin: true,
+        },
       },
       watch: {
         // Binary installers may be locked by Windows while they are copied or
