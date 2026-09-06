@@ -48,7 +48,7 @@ export function installAuth(app: Express, store: WorkspaceRepository, knowledge:
       const id = await CognitoJwtVerifier.create({ userPoolId: settings.userPoolId!, clientId: settings.clientId!, tokenUse: 'id' }).verify(tokens.id_token);
       if (id.sub !== access.sub) throw new HttpError(401, 'Invalid sign-in response.');
       if (nonce && typeof id.nonce === 'string' && id.nonce !== nonce) throw new HttpError(401, 'Invalid sign-in response.');
-      const displayName = [id.name, id.given_name].find((value) => typeof value === 'string' && value.trim());
+      const displayName = [id.name, id.given_name].find((value): value is string => typeof value === 'string' && value.trim().length > 0);
       return { sub: id.sub, name: displayName?.trim() };
     } catch (error) {
       console.error('[AdaptLearn] Token verification failed', error);
@@ -65,7 +65,7 @@ export function installAuth(app: Express, store: WorkspaceRepository, knowledge:
     const tokens = await result.json() as { access_token: string; id_token: string; refresh_token?: string; expires_in: number | string };
     const expiresIn = Number(tokens.expires_in);
     if (!tokens.access_token || !tokens.id_token || !Number.isFinite(expiresIn)) throw new HttpError(401, 'Invalid sign-in response.');
-    return { ...tokens, expires_in: expiresIn, expiresAt: now() + expiresIn };
+    return { access_token: tokens.access_token, id_token: tokens.id_token, refresh_token: tokens.refresh_token, expiresAt: now() + expiresIn };
   };
   const requireSession = async (request: Request, response: Response, settings: AuthConfig) => {
     const session = await read(request);
