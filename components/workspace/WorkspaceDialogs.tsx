@@ -49,15 +49,17 @@ export function LessonRequestDialog({ open, busy, onClose, onSubmit }: { open: b
 
 export function MemoryDialog({ open, busy, workspace, needsName, onClose, onSave }: { open: boolean; busy: boolean; workspace: LearningWorkspace; needsName?: boolean; onClose: () => void; onSave: (profile: LearnerProfile) => Promise<void> }) {
   const [form, setForm] = useState<LearnerProfile>({ ...workspace.profile, displayName: needsName ? '' : workspace.profile.displayName });
-  const submit = async (event: FormEvent) => { event.preventDefault(); await onSave(form); };
+  const submit = async (event: FormEvent) => { event.preventDefault(); await onSave({ ...form, displayName: form.displayName.trim() }); };
   return <Dialog open={open} onClose={busy || needsName ? undefined : onClose} maxWidth="sm" fullWidth slotProps={{ paper: { className: 'studio-dialog' } }}>
     {!needsName && <IconButton aria-label="Close profile" className="dialog-close" disabled={busy} onClick={onClose}><CloseRounded /></IconButton>}
-    <DialogContent><span className="dialog-kicker">YOUR PROFILE</span><h2>{needsName ? 'What should we call you?' : 'Learning preferences'}</h2><p>{needsName ? 'Add your name to personalize your learning workspace.' : 'Update your name and how you prefer to learn.'}</p>
+    <DialogContent><span className="dialog-kicker">YOUR PROFILE</span><h2>{needsName ? 'What should we call you?' : 'Learning preferences'}</h2><p>{needsName ? 'Cognito only collected your email. Add a name so your workspace is personal. You can set learning preferences later.' : 'Update your name and how you prefer to learn.'}</p>
       <form className="goal-form profile-form" onSubmit={submit}>
-        <label>Display name<input autoFocus required maxLength={100} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>
-        <label>Your current background<textarea maxLength={1500} value={form.background} onChange={(event) => setForm({ ...form, background: event.target.value })} /></label>
-        <label>How you prefer to learn<textarea maxLength={1000} value={form.preferences} onChange={(event) => setForm({ ...form, preferences: event.target.value })} /></label>
-        <button className="dialog-primary" disabled={busy || !form.displayName.trim()}>{busy ? 'Saving…' : 'Save profile'} <CheckRounded /></button>
+        <label>Display name<input autoFocus required minLength={2} maxLength={100} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} placeholder="e.g. Kai" /></label>
+        {!needsName && <>
+          <label>Your current background<textarea maxLength={1500} value={form.background} onChange={(event) => setForm({ ...form, background: event.target.value })} /></label>
+          <label>How you prefer to learn<textarea maxLength={1000} value={form.preferences} onChange={(event) => setForm({ ...form, preferences: event.target.value })} /></label>
+        </>}
+        <button className="dialog-primary" disabled={busy || form.displayName.trim().length < 2}>{busy ? 'Saving…' : needsName ? 'Continue' : 'Save profile'} <CheckRounded /></button>
       </form>
     </DialogContent>
   </Dialog>;

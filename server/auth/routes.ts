@@ -43,17 +43,29 @@ export function installAuth(app: Express, store: WorkspaceRepository, knowledge:
   const verify = async (tokens: SessionRecord['tokens'], settings: AuthConfig, nonce?: string) => {
     if (dependencies.verify) return dependencies.verify(tokens, nonce);
     if (!tokens) throw new HttpError(401, 'Sign in again to continue.');
-    const access = await CognitoJwtVerifier.create({ userPoolId: settings.userPoolId!, clientId: settings.clientId!, tokenUse: 'access' }).verify(tokens.access_token);
-    const id = await CognitoJwtVerifier.create({ userPoolId: settings.userPoolId!, clientId: settings.clientId!, tokenUse: 'id' }).verify(tokens.id_token);
-    if (id.sub !== access.sub || (nonce && id.nonce !== nonce)) throw new HttpError(401, 'Invalid sign-in response.');
-    return { sub: id.sub, name: typeof id.name === 'string' ? id.name : undefined };
+    try {
+      const access = await CognitoJwtVerifier.create({ userPoolId: settings.userPoolId!, clientId: settings.clientId!, tokenUse: 'access' }).verify(tokens.access_token);
+      const id = await CognitoJwtVerifier.create({ userPoolId: settings.userPoolId!, clientId: settings.clientId!, tokenUse: 'id' }).verify(tokens.id_token);
+      if (id.sub !== access.sub) throw new HttpError(401, 'Invalid sign-in response.');
+      if (nonce && typeof id.nonce === 'string' && id.nonce !== nonce) throw new HttpError(401, 'Invalid sign-in response.');
+      const displayName = [id.name, id.given_name].find((value) => typeof value === 'string' && value.trim());
+      return { sub: id.sub, name: displayName?.trim() };
+    } catch (error) {
+      console.error('[AdaptLearn] Token verification failed', error);
+      throw error;
+    }
   };
   const tokenRequest = async (settings: AuthConfig, body: URLSearchParams): Promise<NonNullable<SessionRecord['tokens']>> => {
     const result = await (dependencies.fetch ?? fetch)(`${settings.domain}/oauth2/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(15000) });
-    if (!result.ok) throw new HttpError(401, 'Sign in again to continue.');
-    const tokens = await result.json() as { access_token: string; id_token: string; refresh_token?: string; expires_in: number };
-    if (!tokens.access_token || !tokens.id_token || !Number.isFinite(tokens.expires_in)) throw new HttpError(401, 'Invalid sign-in response.');
-    return { ...tokens, expiresAt: now() + tokens.expires_in };
+    if (!result.ok) {
+      const details = await result.text().catch(() => '');
+      console.error('[AdaptLearn] Cognito token request failed', result.status, details);
+      throw new HttpError(401, 'Sign in again to continue.');
+    }
+    const tokens = await result.json() as { access_token: string; id_token: string; refresh_token?: string; expires_in: number | string };
+    const expiresIn = Number(tokens.expires_in);
+    if (!tokens.access_token || !tokens.id_token || !Number.isFinite(expiresIn)) throw new HttpError(401, 'Invalid sign-in response.');
+    return { ...tokens, expires_in: expiresIn, expiresAt: now() + expiresIn };
   };
   const requireSession = async (request: Request, response: Response, settings: AuthConfig) => {
     const session = await read(request);
@@ -135,7 +147,10 @@ export function installAuth(app: Express, store: WorkspaceRepository, knowledge:
       try { await finishImports(session); }
       catch { return response.redirect(`${settings.siteUrl}/?authError=import`); }
       return response.redirect(`${settings.siteUrl}/?signedIn=1`);
-    } catch { return response.redirect(`${settings.siteUrl}/?authError=signin`); }
+    } catch (error) {
+      console.error('[AdaptLearn] Sign-in callback failed', error);
+      return response.redirect(`${settings.siteUrl}/?authError=signin`);
+    }
   });
 
   app.post('/api/auth/import', async (request, response) => {
