@@ -31,12 +31,12 @@ const knowledge: KnowledgeRepository = { backend: 'test', async ingest() { throw
 const profile = { displayName: 'Alice', background: '', preferences: '' };
 const settings = { siteUrl: 'http://localhost:5173', domain: 'https://example.auth.us-east-1.amazoncognito.com', clientId: 'test-client', userPoolId: 'us-east-1_example' };
 
-async function fixture(t: test.TestContext, options: { omitName?: boolean; knowledge?: KnowledgeRepository } = {}) {
+async function fixture(t: test.TestContext, options: { omitName?: boolean; knowledge?: KnowledgeRepository; tokenExpiresIn?: number | string } = {}) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'adaptlearn-auth-'));
   const sessions = new FileSessionStore(directory);
   const store = new MemoryWorkspace();
   const app = createApp({ workspaceRepository: store, knowledgeRepository: options.knowledge ?? knowledge, auth: { sessions, config: settings,
-    fetch: (async () => new Response(JSON.stringify({ access_token: 'access', id_token: 'id', refresh_token: 'refresh', expires_in: 3600 }), { status: 200 })) as typeof fetch,
+    fetch: (async () => new Response(JSON.stringify({ access_token: 'access', id_token: 'id', refresh_token: 'refresh', expires_in: options.tokenExpiresIn ?? 3600 }), { status: 200 })) as typeof fetch,
     verify: async () => ({ sub: 'account-one', name: options.omitName ? undefined : 'Alice' }),
   } });
   const server = app.listen(0, '127.0.0.1');
@@ -167,6 +167,15 @@ test('missing Cognito name is requested once and saved to the account', async (t
   assert.equal(auth.needsName, true);
   assert.equal((await call(`/api/workspace/${auth.learnerId}/profile`, cookie, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': auth.csrfToken }, body: JSON.stringify({ ...profile, displayName: 'Learner' }) })).status, 200);
   assert.equal((await (await call('/api/auth/session', cookie)).json()).needsName, false);
+});
+
+test('Cognito callback accepts string token expiry values', async (t) => {
+  const { call, guest } = await fixture(t, { tokenExpiresIn: '3600' });
+  const a = await guest();
+  const login = await call('/api/auth/login', a.cookie);
+  const state = new URL(login.headers.get('location')!).searchParams.get('state');
+  const callback = await call(`/api/auth/callback?state=${state}&code=x`, a.cookie);
+  assert.match(callback.headers.get('location')!, /signedIn=1/);
 });
 
 test('pending imports survive a lost session and complete on a later login', async (t) => {
