@@ -1,12 +1,12 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowForwardRounded, CheckRounded, CloseRounded, CodeRounded, DeleteOutlineRounded, DescriptionRounded, PersonAddRounded, QuizRounded, ReplayRounded } from '@mui/icons-material';
+import { ArrowForwardRounded, CheckRounded, CloseRounded, CodeRounded, DeleteOutlineRounded, DescriptionRounded, QuizRounded, ReplayRounded } from '@mui/icons-material';
 import { Dialog, DialogContent, IconButton, LinearProgress } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../../lib/api';
-import type { KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningMaterial, LearningWorkspace, LessonQuizQuestion, PlacementResult, PublicPlacementAssessment } from '../../shared/contracts';
+import type { KnowledgeDocument, LearnerProfile, LearningMaterial, LearningWorkspace, LessonQuizQuestion, PlacementResult, PublicPlacementAssessment } from '../../shared/contracts';
 import { CodeSandbox } from './CodeSandbox';
 
 export type GoalInput = { title: string; motivation: string; targetOutcome: string; background: string; preferences: string; courseTemplateId?: string };
@@ -47,40 +47,18 @@ export function LessonRequestDialog({ open, busy, onClose, onSubmit }: { open: b
   </Dialog>;
 }
 
-export function MemoryDialog({ open, busy, workspace, profiles, onClose, onSwitch, onCreate, onDelete, onSave }: { open: boolean; busy: boolean; workspace: LearningWorkspace; profiles: LearnerWorkspaceSummary[]; onClose: () => void; onSwitch: (learnerId: string) => Promise<void>; onCreate: (profile: LearnerProfile) => Promise<void>; onDelete: () => Promise<void>; onSave: (profile: LearnerProfile) => Promise<void> }) {
-  const goal = workspace.goals.find((item) => item.status === 'active');
-  const [form, setForm] = useState<LearnerProfile>(workspace.profile);
-  const [creating, setCreating] = useState(false);
-  const [newProfile, setNewProfile] = useState<LearnerProfile>({ displayName: '', background: '', preferences: '' });
+export function MemoryDialog({ open, busy, workspace, needsName, onClose, onSave }: { open: boolean; busy: boolean; workspace: LearningWorkspace; needsName?: boolean; onClose: () => void; onSave: (profile: LearnerProfile) => Promise<void> }) {
+  const [form, setForm] = useState<LearnerProfile>({ ...workspace.profile, displayName: needsName ? '' : workspace.profile.displayName });
   const submit = async (event: FormEvent) => { event.preventDefault(); await onSave(form); };
-  const create = async (event: FormEvent) => { event.preventDefault(); await onCreate(newProfile); };
-  return <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth slotProps={{ paper: { className: 'studio-dialog' } }}>
-    <IconButton className="dialog-close" disabled={busy} onClick={onClose}><CloseRounded /></IconButton>
-    <DialogContent>
-      <span className="dialog-kicker">PROFILES &amp; PROGRESS</span>
-      <h2>{creating ? 'Create a learner profile' : 'Manage learner profiles'}</h2>
-      <p>Choose who is learning or update their details.</p>
-      {creating ? (
-        <form className="goal-form profile-form" onSubmit={create}>
-          <label>Display name<input required maxLength={100} value={newProfile.displayName} onChange={(event) => setNewProfile({ ...newProfile, displayName: event.target.value })} placeholder="Learner name" /></label>
-          <label>Current background<textarea maxLength={1500} value={newProfile.background} onChange={(event) => setNewProfile({ ...newProfile, background: event.target.value })} placeholder="Experience, role, or what this learner already knows" /></label>
-          <label>How this learner prefers to learn<textarea maxLength={1000} value={newProfile.preferences} onChange={(event) => setNewProfile({ ...newProfile, preferences: event.target.value })} placeholder="Examples, guided practice, conversation…" /></label>
-          <div className="profile-form-actions"><button type="button" disabled={busy} onClick={() => setCreating(false)}>Cancel</button><button className="dialog-primary" disabled={busy}>{busy ? 'Creating…' : 'Create profile'} <ArrowForwardRounded /></button></div>
-        </form>
-      ) : <>
-        <div className="profile-selector">
-          <div><span>CURRENT LEARNER</span><strong>Choose a profile</strong></div>
-          <select aria-label="Select learner profile" disabled={busy} value={workspace.learnerId} onChange={(event) => void onSwitch(event.target.value)}>{profiles.map((profile) => <option value={profile.learnerId} key={profile.learnerId}>{profile.displayName} · {profile.xp} XP · {profile.goalCount} goals</option>)}</select>
-          <button className="new-profile-button" type="button" disabled={busy} onClick={() => setCreating(true)}><PersonAddRounded /> New profile</button>
-        </div>
-        <form className="goal-form profile-form" onSubmit={submit}>
-          <label>Display name<input required maxLength={100} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>
-          <label>Your current background<textarea maxLength={1500} value={form.background} onChange={(event) => setForm({ ...form, background: event.target.value })} placeholder="Experience, role, or what you already know" /></label>
-          <label>How you prefer to learn<textarea maxLength={1000} value={form.preferences} onChange={(event) => setForm({ ...form, preferences: event.target.value })} placeholder="Examples, guided practice, conversation…" /></label>
-          <div className="profile-form-actions"><button type="button" className="danger-button" disabled={busy || profiles.length <= 1} onClick={() => void onDelete()}>Delete profile</button><button className="dialog-primary" disabled={busy}>{busy ? 'Saving…' : 'Save profile'} <CheckRounded /></button></div>
-        </form>
-        <div className="memory-grid compact"><div><span>Current level</span><strong>{workspace.progress.level}</strong></div><div><span>XP evidence</span><strong>{workspace.progress.xp} XP</strong></div><div className="wide"><span>Active goal</span><strong>{goal?.title ?? 'No goal yet'}</strong></div><div><span>Assessments</span><strong>{workspace.progress.completedAssessments}</strong></div><div><span>Documents</span><strong>{workspace.documents.length}</strong></div></div>
-      </>}
+  return <Dialog open={open} onClose={busy || needsName ? undefined : onClose} maxWidth="sm" fullWidth slotProps={{ paper: { className: 'studio-dialog' } }}>
+    {!needsName && <IconButton aria-label="Close profile" className="dialog-close" disabled={busy} onClick={onClose}><CloseRounded /></IconButton>}
+    <DialogContent><span className="dialog-kicker">YOUR PROFILE</span><h2>{needsName ? 'What should we call you?' : 'Learning preferences'}</h2><p>{needsName ? 'Add your name to personalize your learning workspace.' : 'Update your name and how you prefer to learn.'}</p>
+      <form className="goal-form profile-form" onSubmit={submit}>
+        <label>Display name<input autoFocus required maxLength={100} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>
+        <label>Your current background<textarea maxLength={1500} value={form.background} onChange={(event) => setForm({ ...form, background: event.target.value })} /></label>
+        <label>How you prefer to learn<textarea maxLength={1000} value={form.preferences} onChange={(event) => setForm({ ...form, preferences: event.target.value })} /></label>
+        <button className="dialog-primary" disabled={busy || !form.displayName.trim()}>{busy ? 'Saving…' : 'Save profile'} <CheckRounded /></button>
+      </form>
     </DialogContent>
   </Dialog>;
 }

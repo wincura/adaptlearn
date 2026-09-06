@@ -38,6 +38,28 @@ S3 Vectors and the Bedrock Knowledge Base are disabled by default so this stack 
 npm --prefix infra run deploy -- -c enableKnowledgeBase=true
 ```
 
-## Important current boundary
+## Guest sessions and Cognito
 
-The stack deploys Cognito and the AWS data resources, and Lambda uses DynamoDB workspace storage plus Bedrock model invocation. The browser authentication flow, direct S3 uploads, and Bedrock Knowledge Base repository adapter still need application-level integration before treating the deployment as production-ready. Do not make user-isolation guarantees until API routes derive the learner ID from a verified Cognito JWT.
+The app starts in guest mode. Each browser receives a random HttpOnly, SameSite=Lax cookie, Secure over HTTPS, renewed for 30 days with activity. DynamoDB stores the session under a hash of the cookie. Guest work survives browser restarts while that cookie remains valid. Account sessions keep Cognito tokens server-side and refresh them when needed; an expired session asks the user to sign in or explicitly start a new guest session.
+
+The sidebar opens Cognito hosted login with authorization code + S256 PKCE, one-time browser-bound state, and nonce. Lambda verifies both token types, subject, issuer, app client and expiry. The existing user pool and WebClient logical IDs are retained. Email signup/verification stays on Cognito; users without a Cognito name enter a display name on their first return. There is one profile per account.
+
+CDK adds a session table with TTL, a Cognito domain, and an SSM parameter containing public runtime auth configuration. Lambda reads `/adaptlearn/AdaptLearnStack/auth`; this avoids a circular CloudFormation dependency and eliminates frontend build-time Cognito IDs. Registered callbacks are the CloudFront origin plus `/api/auth/callback`, and localhost ports 3000 and 5173. Logout returns to `/`. A local API uses `SITE_URL` and the three `COGNITO_*` variables in `.env.example`; leave `AUTH_CONFIG_PARAMETER` unset locally so it does not redirect to production. Without Cognito configuration, guest learning works and the sign-in button is disabled.
+
+Every learning API operation requires a session. Repository access is scoped to the session's learner ID (`guest-<uuid>` or `user-<verified subject>`). Client-supplied IDs cannot select another workspace. Mutations require the exact configured Origin and session CSRF header. Responses are `no-store`, and CloudFront already disables caching on `/api/*`. Uploads are mediated by Lambda, so the uploads bucket does not need browser CORS.
+
+## Durable storage and guest imports
+
+Workspace records retain DynamoDB optimistic version checks. Workspaces over 300 KB are stored as immutable S3 JSON snapshots with a DynamoDB pointer and summary, avoiding the 400 KB item limit. Originals and extracted document text are stored under workspace-specific `knowledge/` prefixes. Retrieval reads S3 after a cold start and applies the existing learner/goal filters. Local development retains JSON/filesystem adapters.
+
+Login combines guest work with saved account progress. Imports preserve item IDs and goal references; an existing account's preferences, active goal and level take precedence. XP and completed-assessment totals are added once, badges are deduplicated, and independently created courses remain separate. Pending and completed import IDs are recorded on the account. Guest writes are frozen before copying documents, and failed imports remain retryable even after a later login. Source guest data is retained for recovery. Per-workspace mutation leases prevent a document deletion or upload from racing the import snapshot; crashed requests release by expiry after five minutes.
+
+Existing legacy profiles are not automatically assigned to accounts and are not publicly listed. Keep backups; any deliberate legacy-data assignment needs a separate migration with a verified owner. Old local-file documents on Lambda cannot be reconstructed if their original temporary files have already disappeared. S3 originals, import source copies and immutable snapshots are retained; future garbage collection must preserve currently referenced snapshots and incomplete imports. Bedrock Knowledge Base integration remains optional and is not enabled by this change.
+
+## Validation and rollout
+
+Run `npm run typecheck`, `npm test`, `npm run test:auth`, `npm run build`, and `npm --prefix infra run synth -- --no-lookups`. Tests use mock Cognito/AWS transports and exercise actual Express routes, S3 adapters, import retry/concurrency, CSRF, session expiry and account isolation. They do not contact a live user pool.
+
+Before deploying, run CDK diff against the intended account and verify that the retained UserPool, WorkspaceTable and UploadsBucket are not replaced. Deploy with the existing script. In the deployed site, create a guest course and upload a small document; sign up, verify email, provide a name, and confirm imported progress. Sign out, log back in, and verify restoration from another browser. Verify that a second account cannot access the first account's workspace. Also test a canceled login and a failed import followed by retry.
+
+CloudFront and Lambda/API Gateway must forward Cookie, Origin and CSRF headers unchanged. Existing Lambda request/timeout limits still apply to uploads and model calls; use small documents for the deployment smoke test. Check Lambda errors and failed-import reports during rollout. No AWS deployment or live Cognito signup is performed by local validation.

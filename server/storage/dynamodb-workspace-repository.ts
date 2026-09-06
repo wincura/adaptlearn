@@ -1,3 +1,4 @@
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -13,7 +14,9 @@ import type { WorkspaceMutation, WorkspaceRepository } from './workspace-reposit
 
 type WorkspaceRecord = {
   learnerId: string;
-  workspace: LearningWorkspace;
+  workspace?: LearningWorkspace;
+  workspaceKey?: string;
+  summary?: LearnerWorkspaceSummary;
   version: number;
 };
 
@@ -27,6 +30,8 @@ const conditionalFailure = (error: unknown) =>
 export class DynamoDbWorkspaceRepository implements WorkspaceRepository {
   readonly backend = 'dynamodb';
   private readonly tableName: string;
+  private readonly bucket = process.env.UPLOADS_BUCKET;
+  private readonly s3 = new S3Client({});
 
   constructor(tableName = process.env.WORKSPACE_TABLE) {
     if (!tableName) throw new Error('WORKSPACE_TABLE is required when WORKSPACE_REPOSITORY=dynamodb.');
@@ -40,32 +45,40 @@ export class DynamoDbWorkspaceRepository implements WorkspaceRepository {
       const page = await client.send(new ScanCommand({
         TableName: this.tableName,
         ExclusiveStartKey: exclusiveStartKey,
-        ProjectionExpression: 'learnerId, workspace',
+        ProjectionExpression: 'learnerId, workspace, summary',
       }));
       items.push(...(page.Items ?? []) as WorkspaceRecord[]);
       exclusiveStartKey = page.LastEvaluatedKey;
     } while (exclusiveStartKey);
     return items
-      .map((item) => summarizeWorkspace(normalizedWorkspace(item.workspace)))
+      .map((item) => item.summary ?? summarizeWorkspace(normalizedWorkspace(item.workspace!)))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
   async get(learnerId: string): Promise<LearningWorkspace> {
     const record = await this.read(learnerId);
-    return normalizedWorkspace(record?.workspace ?? freshWorkspace(learnerId));
+    return normalizedWorkspace(await this.loadWorkspace(record, learnerId));
   }
 
   async update(learnerId: string, mutate: WorkspaceMutation): Promise<LearningWorkspace> {
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const currentRecord = await this.read(learnerId);
-      const current = normalizedWorkspace(currentRecord?.workspace ?? freshWorkspace(learnerId));
+      const current = normalizedWorkspace(await this.loadWorkspace(currentRecord, learnerId));
       const next = normalizedWorkspace(mutate(current) ?? current);
       next.updatedAt = new Date().toISOString();
       const version = (currentRecord?.version ?? 0) + 1;
+      const serialized = JSON.stringify(next);
+      let payload: Pick<WorkspaceRecord, 'workspace' | 'workspaceKey'> = { workspace: next };
+      if (Buffer.byteLength(serialized) > 300_000) {
+        if (!this.bucket) throw new Error('UPLOADS_BUCKET is required for large workspaces.');
+        const key = `knowledge/workspaces/${encodeURIComponent(learnerId)}/${crypto.randomUUID()}.json`;
+        await this.s3.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: serialized, ContentType: 'application/json' }));
+        payload = { workspaceKey: key };
+      }
       try {
         await client.send(new PutCommand({
           TableName: this.tableName,
-          Item: { learnerId, workspace: next, version },
+          Item: { learnerId, ...payload, summary: summarizeWorkspace(next), version },
           ...(currentRecord
             ? {
                 ConditionExpression: 'version = :expectedVersion',
@@ -90,6 +103,14 @@ export class DynamoDbWorkspaceRepository implements WorkspaceRepository {
 
   async delete(learnerId: string): Promise<void> {
     await client.send(new DeleteCommand({ TableName: this.tableName, Key: { learnerId } }));
+  }
+
+  private async loadWorkspace(record: WorkspaceRecord | undefined, learnerId: string): Promise<LearningWorkspace> {
+    if (!record?.workspaceKey) return record?.workspace ?? freshWorkspace(learnerId);
+    if (!this.bucket) throw new Error('UPLOADS_BUCKET is required to restore this workspace.');
+    const object = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: record.workspaceKey }));
+    if (!object.Body) throw new Error('Saved workspace is missing.');
+    return JSON.parse(await object.Body.transformToString()) as LearningWorkspace;
   }
 
   private async read(learnerId: string): Promise<WorkspaceRecord | undefined> {

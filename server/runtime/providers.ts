@@ -1,3 +1,4 @@
+import { S3KnowledgeRepository } from '../knowledge/s3-document-store.ts';
 import type { KnowledgeRepository } from '../knowledge/contracts.ts';
 import { localKnowledgeRepository } from '../knowledge/document-store.ts';
 import { WorkspaceStore } from '../memory/workspace-store.ts';
@@ -16,6 +17,7 @@ export function createWorkspaceRepository(): WorkspaceRepository {
 
 export function createKnowledgeRepository(): KnowledgeRepository {
   const provider = process.env.KNOWLEDGE_REPOSITORY ?? 'local-filesystem';
+  if (provider === 's3') return new S3KnowledgeRepository();
   if (provider === 'local-filesystem') return localKnowledgeRepository;
   throw new Error(`Unknown KNOWLEDGE_REPOSITORY “${provider}”. Register its KnowledgeRepository adapter in server/runtime/providers.ts.`);
 }

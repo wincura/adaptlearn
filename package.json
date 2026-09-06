@@ -15,11 +15,14 @@
     "test:sandbox": "node --experimental-strip-types scripts/test-sandbox.ts",
     "test:api": "node --experimental-strip-types scripts/test-api-sandbox.ts",
     "start": "vite preview",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "test:auth": "node --experimental-strip-types --test tests/auth.test.ts tests/aws-storage.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1014.0",
     "@aws-sdk/client-dynamodb": "^3.1014.0",
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/client-ssm": "^3.1127.0",
     "@aws-sdk/lib-dynamodb": "^3.1014.0",
     "@codemirror/lang-cpp": "^6.0.3",
     "@codemirror/lang-java": "^6.0.2",
@@ -33,6 +36,7 @@
     "@mui/icons-material": "^9.3.1",
     "@mui/material": "^9.3.1",
     "@uiw/react-codemirror": "^4.25.11",
+    "aws-jwt-verify": "^5.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "mammoth": "^1.12.2",

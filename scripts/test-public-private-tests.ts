@@ -112,10 +112,13 @@ async function runTests() {
   const server = app.listen(8990);
 
   try {
+    const sessionResponse = await fetch('http://127.0.0.1:8990/api/auth/session');
+    const session = await sessionResponse.json() as { csrfToken: string };
+    const sessionHeaders = { Cookie: sessionResponse.headers.get('set-cookie')!.split(';')[0], Origin: process.env.SITE_URL ?? 'http://localhost:3000', 'X-CSRF-Token': session.csrfToken };
     // 5a. Call /api/sandbox/run-tests
     const runRes = await fetch('http://127.0.0.1:8990/api/sandbox/run-tests', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...sessionHeaders },
       body: JSON.stringify({
         challenge,
         studentCode: alwaysSquareCode,
@@ -130,7 +133,7 @@ async function runTests() {
     // 5b. Call /api/sandbox/evaluate with correct solution
     const evalRes = await fetch('http://127.0.0.1:8990/api/sandbox/evaluate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...sessionHeaders },
       body: JSON.stringify({
         challenge,
         studentCode: correctCode,

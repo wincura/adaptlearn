@@ -1,12 +1,25 @@
-import type { ChatResponse, KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningWorkspace, PlacementResult, PublicPlacementAssessment } from '../shared/contracts';
+import type { ChatResponse, KnowledgeDocument, LearnerProfile, LearningWorkspace, PlacementResult, PublicPlacementAssessment } from '../shared/contracts';
 
 // Local development uses Vite's same-origin proxy. Leave this unset in
 // production when CloudFront routes /api and /health to API Gateway.
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
+let csrfToken: string = import.meta.hot?.data.csrfToken ?? '';
+if (import.meta.hot) import.meta.hot.dispose((data) => { data.csrfToken = csrfToken; });
+const accountHintKey = 'adaptlearn.session-kind';
+const rememberKind = (kind: string) => { try { window.localStorage.setItem(accountHintKey, kind); } catch { /* Private browser storage can be disabled. */ } };
+const previousKind = () => { try { return window.localStorage.getItem(accountHintKey); } catch { return null; } };
+export type AuthSession = { kind: 'guest' | 'account'; learnerId: string; csrfToken: string; signInAvailable: boolean; needsName: boolean; importPending: boolean; displayName: string };
+
 async function request<T>(path: string, init?: RequestInit, retries = 2): Promise<T> {
   try {
-    const response = await fetch(`${API_URL}${path}`, init);
+    const headers = new Headers(init?.headers);
+    if (init?.method && !['GET', 'HEAD'].includes(init.method)) {
+      headers.set('X-CSRF-Token', csrfToken);
+      headers.set('X-Requested-With', 'AdaptLearn');
+    }
+    const response = await fetch(`${API_URL}${path}`, { ...init, headers, credentials: 'include' });
+    if (response.status === 401) window.dispatchEvent(new Event('adaptlearn:session-expired'));
     if (!response.ok) {
       if ((response.status === 502 || response.status === 503) && retries > 0) {
         await new Promise((r) => setTimeout(r, 300));
@@ -27,12 +40,24 @@ async function request<T>(path: string, init?: RequestInit, retries = 2): Promis
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
+let sessionRequest: Promise<AuthSession> | undefined;
+
 export const api = {
+  session: () => {
+    sessionRequest ??= request<AuthSession>('/api/auth/session').then((session) => {
+      if (session.kind === 'guest' && previousKind() === 'account') {
+        window.dispatchEvent(new Event('adaptlearn:session-expired'));
+        throw new Error('Sign in again to restore your account progress.');
+      }
+      csrfToken = session.csrfToken; rememberKind(session.kind); return session;
+    }).finally(() => { sessionRequest = undefined; });
+    return sessionRequest;
+  },
+  login: () => { window.location.assign(`${API_URL}/api/auth/login`); },
+  logout: async () => { const result = await request<{ redirect: string }>('/api/auth/logout', { method: 'POST' }, 0); rememberKind('guest'); window.location.assign(result.redirect); },
+  importGuest: () => request<{ success: boolean }>('/api/auth/import', { method: 'POST' }, 0),
   health: () => request<{ status: string; storage: string; knowledge: string; ai: string; aiConfigured: boolean }>('/health'),
   courseImage: (query: string) => request<{ image?: string }>(`/api/course-image?query=${encodeURIComponent(query)}`),
-  profiles: () => request<LearnerWorkspaceSummary[]>('/api/profiles'),
-  createProfile: (profile: LearnerProfile) => request<LearningWorkspace>('/api/profiles', json(profile)),
-  deleteProfile: (learnerId: string) => request<{ profiles: LearnerWorkspaceSummary[] }>(`/api/profiles/${learnerId}`, { method: 'DELETE' }),
   workspace: (learnerId: string) => request<LearningWorkspace>(`/api/workspace/${learnerId}`),
   updateProfile: (learnerId: string, profile: LearnerProfile) => request<LearningWorkspace>(`/api/workspace/${learnerId}/profile`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) }),
   addGoal: (learnerId: string, body: { title: string; motivation: string; targetOutcome: string; background: string; preferences: string; courseTemplateId?: string }) => request<LearningWorkspace>(`/api/workspace/${learnerId}/goals`, json(body)),

@@ -9,6 +9,9 @@ async function main() {
   console.log('Test server listening on port 8989');
 
   try {
+    const sessionResponse = await fetch('http://127.0.0.1:8989/api/auth/session');
+    const session = await sessionResponse.json() as { csrfToken: string };
+    const sessionHeaders = { Cookie: sessionResponse.headers.get('set-cookie')!.split(';')[0], Origin: process.env.SITE_URL ?? 'http://localhost:3000', 'X-CSRF-Token': session.csrfToken };
     // 1. Health check
     const healthRes = await fetch('http://127.0.0.1:8989/health');
     const health = await healthRes.json() as Record<string, unknown>;
@@ -20,7 +23,7 @@ async function main() {
     // 2. Direct run endpoint
     const runRes = await fetch('http://127.0.0.1:8989/api/sandbox/run', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...sessionHeaders },
       body: JSON.stringify({
         language: 'python',
         code: 'print("Hello from Sandbox API!")',
@@ -36,7 +39,7 @@ async function main() {
     console.log('\nTesting /api/sandbox/evaluate (with intentional logic bug):');
     const evalRes = await fetch('http://127.0.0.1:8989/api/sandbox/evaluate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...sessionHeaders },
       body: JSON.stringify({
         challenge: {
           id: 'test-challenge-1',

@@ -1,3 +1,5 @@
+import { installAuth, type AuthDependencies } from './auth/routes.ts';
+import { OwnedWorkspaceRepository, HttpError, type PrivateWorkspace } from './auth/ownership.ts';
 import crypto from 'node:crypto';
 import { unlink } from 'node:fs/promises';
 import path from 'node:path';
@@ -21,6 +23,7 @@ import { detectCodeTopic } from './sandbox/topic-detector.ts';
 import type { WorkspaceRepository } from './storage/workspace-repository.ts';
 
 export type AppDependencies = {
+  auth?: AuthDependencies;
   workspaceRepository?: WorkspaceRepository;
   knowledgeRepository?: KnowledgeRepository;
   sandboxExecutor?: SandboxExecutor;
@@ -55,13 +58,14 @@ type ApiGatewayEventRequest = express.Request & {
 const courseImageCache = new Map<string, { image: string; expiresAt: number }>();
 
 const publicWorkspace = (workspace: LearningWorkspace): LearningWorkspace => ({
-  ...workspace,
+  ...Object.fromEntries(Object.entries(workspace).filter(([key]) => key !== 'auth')) as LearningWorkspace,
   assessments: workspace.assessments.map((assessment) => publicAssessment(assessment) as typeof assessment),
 });
 
 export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
-  const store = dependencies.workspaceRepository ?? createWorkspaceRepository();
+  const repository = dependencies.workspaceRepository ?? createWorkspaceRepository();
+  const store = new OwnedWorkspaceRepository(repository);
   const knowledge = dependencies.knowledgeRepository ?? createKnowledgeRepository();
   const sandbox = dependencies.sandboxExecutor ?? createSandboxExecutor();
   const upload = multer({
@@ -90,6 +94,8 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
     next();
   });
+
+  installAuth(app, repository, knowledge, dependencies.auth);
 
   app.get('/health', async (_request, response) => response.json({
     status: 'ok',
@@ -130,22 +136,8 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.get('/api/profiles', async (_request, response) => response.json(await store.list()));
 
-  app.post('/api/profiles', async (request, response) => {
-    const profile = profileSchema.parse(request.body);
-    const learnerId = crypto.randomUUID();
-    const workspace = await store.update(learnerId, (current) => { current.profile = profile; });
-    response.status(201).json(publicWorkspace(workspace));
-  });
-
-  app.delete('/api/profiles/:learnerId', async (request, response) => {
-    const learnerId = learnerIdSchema.parse(request.params.learnerId);
-    const exists = (await store.list()).some((profile) => profile.learnerId === learnerId);
-    if (!exists) return response.status(404).json({ error: 'Learner profile not found.' });
-    const workspace = await store.get(learnerId);
-    await knowledge.remove(workspace.documents);
-    await store.delete(learnerId);
-    return response.json({ profiles: await store.list() });
-  });
+  app.post('/api/profiles', (_request, response) => response.status(403).json({ error: 'Each session has one learner profile.' }));
+  app.delete('/api/profiles/:learnerId', (_request, response) => response.status(403).json({ error: 'Account profile deletion is not supported.' }));
 
   app.get('/api/workspace/:learnerId', async (request, response) => {
     const learnerId = learnerIdSchema.parse(request.params.learnerId);
@@ -155,7 +147,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.put('/api/workspace/:learnerId/profile', async (request, response) => {
     const learnerId = learnerIdSchema.parse(request.params.learnerId);
     const profile = profileSchema.parse(request.body);
-    const workspace = await store.update(learnerId, (current) => { current.profile = profile; });
+    const workspace = await store.update(learnerId, (current: PrivateWorkspace) => { current.profile = profile; current.auth = { ...current.auth, nameCollected: true }; });
     response.json(publicWorkspace(workspace));
   });
 
@@ -301,7 +293,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     } catch (error) {
       await unlink(request.file.path).catch(() => undefined);
       const message = error instanceof Error ? error.message : 'The document could not be read.';
-      return response.status(400).json({ error: message });
+      return response.status(error instanceof HttpError ? error.status : 400).json({ error: message });
     }
   });
 
@@ -448,6 +440,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   });
 
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+    if (error instanceof HttpError) return response.status(error.status).json({ error: error.message });
     void _next;
     const message = error instanceof Error ? error.message : 'Unknown server error';
     const status = error instanceof z.ZodError ? 400 : message.startsWith('Complete the placement test') ? 409 : 500;

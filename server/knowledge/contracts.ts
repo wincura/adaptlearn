@@ -41,6 +41,7 @@ export type RelevantDocumentContext = {
 
 export interface KnowledgeRepository {
   readonly backend: string;
+  copyTo?(document: KnowledgeDocument, learnerId: string): Promise<KnowledgeDocument>;
   ingest(file: UploadedDocumentInput, scope: KnowledgeScope): Promise<KnowledgeDocument>;
   retrieve(documents: KnowledgeDocument[], query: RetrievalQuery): Promise<RetrievedPassage[]>;
   remove(documents: KnowledgeDocument[]): Promise<void>;

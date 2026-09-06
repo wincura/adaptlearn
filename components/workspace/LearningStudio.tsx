@@ -1,33 +1,23 @@
 'use client';
 
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { Snackbar } from '@mui/material';
-import { api } from '../../lib/api';
+import { Dialog, DialogContent, DialogTitle, Snackbar } from '@mui/material';
+import { api, type AuthSession } from '../../lib/api';
 import type { CourseTemplate } from '../../lib/course-catalog';
-import type { AgentId, KnowledgeDocument, LearnerProfile, LearnerWorkspaceSummary, LearningGoal, LearningMaterial, LearningWorkspace, PlacementResult, PublicPlacementAssessment, ResearchSuggestion } from '../../shared/contracts';
+import type { AgentId, KnowledgeDocument, LearnerProfile, LearningGoal, LearningMaterial, LearningWorkspace, PlacementResult, PublicPlacementAssessment, ResearchSuggestion } from '../../shared/contracts';
 import { LearningChat } from './LearningChat';
 import { CourseDetailHeader, CoursesPage, ProfilePage, ProgressPage, ReferenceShell, type PageView, type StudioView, useGoalBannerImage, WorkspacePage } from './ReferencePages';
 import { DocumentsDialog, GoalDialog, GoalInput, LessonRequestDialog, MaterialDialog, MemoryDialog, PlacementDialog } from './WorkspaceDialogs';
 import { WorkspaceCanvas } from './WorkspaceCanvas';
 
 const defaultLearnerId = 'local-learner';
-const selectedProfileKey = 'adaptlearn.selected-profile';
 const offlineWorkspace: LearningWorkspace = { learnerId: defaultLearnerId, profile: { displayName: 'Learner', background: '', preferences: '' }, goals: [], documents: [], materials: [], suggestions: [], assessments: [], conversation: [], progress: { xp: 0, level: 'Unassessed', badges: [], completedAssessments: 0 }, updatedAt: new Date(0).toISOString() };
-
-const summarize = (workspace: LearningWorkspace): LearnerWorkspaceSummary => ({
-  learnerId: workspace.learnerId,
-  displayName: workspace.profile.displayName,
-  background: workspace.profile.background,
-  activeGoalTitle: workspace.goals.find((goal) => goal.status === 'active')?.title,
-  goalCount: workspace.goals.length,
-  xp: workspace.progress.xp,
-  level: workspace.progress.level,
-  updatedAt: workspace.updatedAt,
-});
 
 export function LearningStudio() {
   const [workspace, setWorkspace] = useState<LearningWorkspace>(offlineWorkspace);
-  const [profiles, setProfiles] = useState<LearnerWorkspaceSummary[]>([]);
+  const [session, setSession] = useState<AuthSession>();
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [view, setView] = useState<StudioView>('workspace');
   const [detailReturnView, setDetailReturnView] = useState<PageView>('workspace');
   const [online, setOnline] = useState(false);
@@ -48,33 +38,51 @@ export function LearningStudio() {
 
   const applyWorkspace = useCallback((current: LearningWorkspace) => {
     setWorkspace(current);
-    const summary = summarize(current);
-    setProfiles((existing) => [summary, ...existing.filter((profile) => profile.learnerId !== current.learnerId)]);
+
   }, []);
 
   useEffect(() => {
+    const expired = () => setSessionExpired(true);
+    window.addEventListener('adaptlearn:session-expired', expired);
+    let cancelled = false;
     const initialize = async () => {
       try {
-        const [listedProfiles, health] = await Promise.all([api.profiles(), api.health()]);
-        let available = listedProfiles;
-        let current: LearningWorkspace;
-        if (!available.length) {
-          current = await api.createProfile({ displayName: 'Learner', background: '', preferences: '' });
-          available = [summarize(current)];
-        } else {
-          const remembered = window.localStorage.getItem(selectedProfileKey);
-          const selected = available.find((profile) => profile.learnerId === remembered) ?? available.find((profile) => profile.learnerId === defaultLearnerId) ?? available[0];
-          current = await api.workspace(selected.learnerId);
-        }
-        setProfiles(available);
+        const [auth, health] = await Promise.all([api.session(), api.health()]);
+        const current = await api.workspace(auth.learnerId);
+        if (cancelled) return;
+        setSession(auth);
         setWorkspace(current);
-        window.localStorage.setItem(selectedProfileKey, current.learnerId);
         setOnline(true);
         setAIConnected(health.aiConfigured);
-      } catch (error) { setToast(error instanceof Error ? error.message : 'The local API is offline.'); }
+        if (auth.needsName) setMemoryOpen(true);
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get('authError');
+        if (error) setToast(error === 'import' ? 'Signed in. Your guest progress still needs to be imported. Please retry below.' : error === 'canceled' ? 'Sign-in canceled. Your guest work is still here.' : 'Sign-in could not be completed. Please try again.');
+        else if (params.has('signedIn')) setToast('Signed in. Your progress is saved to your account.');
+        if (error || params.has('signedIn')) window.history.replaceState(null, '', window.location.pathname);
+      } catch (error) { if (!cancelled) setToast(error instanceof Error ? error.message : 'Could not load your session.'); }
+      finally { if (!cancelled) setInitializing(false); }
     };
     void initialize();
+    return () => { cancelled = true; window.removeEventListener('adaptlearn:session-expired', expired); };
   }, []);
+
+  const retryImport = async () => {
+    setBusy(true);
+    try {
+      await api.importGuest();
+      const auth = await api.session();
+      setSession(auth);
+      applyWorkspace(await api.workspace(auth.learnerId));
+      setToast('Your guest progress is now saved to your account.');
+    } catch (error) { setToast(error instanceof Error ? error.message : 'Import failed. Your guest work is safe; please retry.'); }
+    finally { setBusy(false); }
+  };
+  const logout = async () => {
+    setBusy(true);
+    try { await api.logout(); }
+    catch (error) { setToast(error instanceof Error ? error.message : 'Could not sign out.'); setBusy(false); }
+  };
 
   const learnerId = workspace.learnerId;
 
@@ -159,58 +167,10 @@ export function LearningStudio() {
     setBusy(true);
     try {
       applyWorkspace(await api.updateProfile(learnerId, profile));
+      setSession((current) => current ? { ...current, needsName: false, displayName: profile.displayName } : current);
       setToast('Profile updated. Future lessons will use these details.');
       setMemoryOpen(false);
     } catch (error) { setToast(error instanceof Error ? error.message : 'Could not update the profile.'); }
-    finally { setBusy(false); }
-  };
-
-  const switchProfile = async (nextLearnerId: string) => {
-    if (nextLearnerId === learnerId || busy) return;
-    setBusy(true);
-    try {
-      const current = await api.workspace(nextLearnerId);
-      applyWorkspace(current);
-      window.localStorage.setItem(selectedProfileKey, nextLearnerId);
-      setMaterial(undefined);
-      setPlacement(undefined);
-      setPlacementResult(undefined);
-      setMemoryOpen(false);
-      setToast(`Switched to ${current.profile.displayName}.`);
-    } catch (error) { setToast(error instanceof Error ? error.message : 'Could not switch learner profiles.'); }
-    finally { setBusy(false); }
-  };
-
-  const createProfile = async (profile: LearnerProfile) => {
-    setBusy(true);
-    try {
-      const current = await api.createProfile(profile);
-      applyWorkspace(current);
-      window.localStorage.setItem(selectedProfileKey, current.learnerId);
-      setMemoryOpen(false);
-      setToast(`${current.profile.displayName}'s profile is ready.`);
-    } catch (error) { setToast(error instanceof Error ? error.message : 'Could not create the learner profile.'); }
-    finally { setBusy(false); }
-  };
-
-  const deleteProfile = async () => {
-    if (profiles.length <= 1 || busy) return;
-    if (!window.confirm(`Delete ${workspace.profile.displayName}'s entire profile, goals, lessons, documents, assessments, conversation, XP, and badges? This cannot be undone.`)) return;
-    setBusy(true);
-    try {
-      const result = await api.deleteProfile(learnerId);
-      const nextProfile = result.profiles[0];
-      if (!nextProfile) throw new Error('At least one learner profile must remain.');
-      const current = await api.workspace(nextProfile.learnerId);
-      setProfiles(result.profiles);
-      setWorkspace(current);
-      window.localStorage.setItem(selectedProfileKey, current.learnerId);
-      setMemoryOpen(false);
-      setMaterial(undefined);
-      setPlacement(undefined);
-      setPlacementResult(undefined);
-      setToast(`Profile deleted. Switched to ${current.profile.displayName}.`);
-    } catch (error) { setToast(error instanceof Error ? error.message : 'Could not delete the learner profile.'); }
     finally { setBusy(false); }
   };
 
@@ -331,5 +291,5 @@ export function LearningStudio() {
     : view === 'profile' ? <ProfilePage workspace={workspace} onManageProfiles={() => setMemoryOpen(true)} onSaveProfile={saveProfile} onOpenGoal={openGoalDetail} />
     : <div className="reference-course-detail"><CourseDetailHeader workspace={workspace} online={online} aiConnected={aiConnected} onBack={() => setView(detailReturnView)} onAddGoal={openNewGoal} /><WorkspaceCanvas workspace={workspace} bannerImage={activeGoalBannerImage} activeAgent={activeAgent} onAddGoal={openNewGoal} onActivateGoal={(goalId) => void activateGoal(goalId)} onEditGoal={openGoalEditor} onDeleteGoal={() => void deleteGoal()} onDocuments={() => setDocumentsOpen(true)} onMemory={() => setMemoryOpen(true)} onCreateLesson={() => void requestLesson()} onAgentAction={(agent) => void runAgentAction(agent)} onOpenMaterial={setMaterial} onAcceptSuggestion={(suggestion) => void acceptSuggestion(suggestion)} onUpload={() => fileInput.current?.click()} /></div>;
 
-  return <ReferenceShell active={view} workspace={workspace} onNavigate={setView} onManageProfiles={() => setMemoryOpen(true)}>{page}<LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} editing={Boolean(editingGoal)} templateName={enrollmentTemplate?.title} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : enrollmentTemplate ? { title: enrollmentTemplate.title, motivation: enrollmentTemplate.motivation, targetOutcome: enrollmentTemplate.targetOutcome, courseTemplateId: enrollmentTemplate.id } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); setEnrollmentTemplate(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} workspace={workspace} profiles={profiles} onClose={() => setMemoryOpen(false)} onSwitch={switchProfile} onCreate={createProfile} onDelete={deleteProfile} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} learnerId={learnerId} onWorkspaceUpdated={applyWorkspace} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></ReferenceShell>;
+  return <ReferenceShell active={view} workspace={workspace} session={session} onSignIn={api.login} onSignOut={() => void logout()} onNavigate={setView} onManageProfiles={() => setMemoryOpen(true)}>{initializing ? <div className="auth-notice" role="status">Loading your learning workspace…</div> : !session && !sessionExpired ? <div className="auth-notice" role="alert">Could not load your workspace. <button onClick={() => window.location.reload()}>Retry</button></div> : page}{session?.importPending && <div className="auth-notice" role="alert">Your guest work has not finished importing. <button disabled={busy} onClick={() => void retryImport()}>{busy ? 'Importing…' : 'Retry import'}</button></div>}{sessionExpired && <Dialog open aria-labelledby="session-expired-title"><DialogTitle id="session-expired-title">Your session expired</DialogTitle><DialogContent className="auth-session-card"><p>Sign in again to continue with your saved progress.</p><button onClick={api.login}>Sign up / Sign in</button><button disabled={busy} onClick={() => void logout()}>Start a new guest session</button></DialogContent></Dialog>}<LearningChat workspace={workspace} online={online && aiConnected} onWorkspace={applyWorkspace} onWorking={(working) => setActiveAgent(working ? 'coordinator' : undefined)} onError={setToast} /><input ref={fileInput} hidden type="file" accept=".pdf,.docx,.txt,.md,.csv" onChange={upload} />{goalOpen && <GoalDialog open busy={busy} profile={workspace.profile} editing={Boolean(editingGoal)} templateName={enrollmentTemplate?.title} initial={editingGoal ? { title: editingGoal.title, motivation: editingGoal.motivation, targetOutcome: editingGoal.targetOutcome } : enrollmentTemplate ? { title: enrollmentTemplate.title, motivation: enrollmentTemplate.motivation, targetOutcome: enrollmentTemplate.targetOutcome, courseTemplateId: enrollmentTemplate.id } : undefined} onClose={() => { setGoalOpen(false); setEditingGoal(undefined); setEnrollmentTemplate(undefined); }} onSubmit={editingGoal ? updateGoal : addGoal} />}{lessonRequestOpen && <LessonRequestDialog open busy={busy} onClose={() => setLessonRequestOpen(false)} onSubmit={createLesson} />}{memoryOpen && <MemoryDialog open busy={busy} needsName={session?.needsName} workspace={workspace} onClose={() => setMemoryOpen(false)} onSave={saveProfile} />}{documentsOpen && <DocumentsDialog open busy={busy} documents={workspace.documents} onClose={() => setDocumentsOpen(false)} onDelete={deleteDocument} />}<MaterialDialog material={material} learnerId={learnerId} onWorkspaceUpdated={applyWorkspace} onClose={() => setMaterial(undefined)} /><PlacementDialog key={placement?.id ?? 'no-placement'} assessment={placement} busy={busy} result={placementResult} onClose={() => { setPlacement(undefined); setPlacementResult(undefined); }} onSubmit={submitPlacement} /><Snackbar open={Boolean(toast)} autoHideDuration={5200} onClose={() => setToast('')} message={toast} /></ReferenceShell>;
 }

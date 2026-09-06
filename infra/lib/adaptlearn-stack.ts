@@ -11,6 +11,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 
@@ -53,6 +54,15 @@ export class AdaptLearnStack extends Stack {
       removalPolicy: retention,
     });
 
+    const sessionTable = new dynamodb.Table(this, 'SessionTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: retention,
+    });
+    const authConfigPath = `/adaptlearn/${this.stackName}/auth`;
+
     const userPool = new cognito.UserPool(this, 'UserPool', {
       selfSignUpEnabled: true,
       signInAliases: { email: true },
@@ -67,10 +77,19 @@ export class AdaptLearnStack extends Stack {
       },
       removalPolicy: retention,
     });
+    const userPoolDomain = userPool.addDomain('HostedDomain', { cognitoDomain: { domainPrefix: `adaptlearn-${this.account}-${this.region}` } });
     const userPoolClient = userPool.addClient('WebClient', {
       authFlows: { userSrp: true, userPassword: true },
       preventUserExistenceErrors: true,
       generateSecret: false,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: ['http://localhost:5173/api/auth/callback', 'http://localhost:3000/api/auth/callback'],
+        logoutUrls: ['http://localhost:5173/', 'http://localhost:3000/'],
+      },
+      readAttributes: new cognito.ClientAttributes().withStandardAttributes({ email: true, fullname: true }),
+      refreshTokenValidity: Duration.days(30),
     });
 
     const apiFunction = new lambdaNodejs.NodejsFunction(this, 'ApiFunction', {
@@ -93,9 +112,11 @@ export class AdaptLearnStack extends Stack {
         E2B_API_KEY: process.env.E2B_API_KEY ?? '',
         WORKSPACE_REPOSITORY: 'dynamodb',
         WORKSPACE_TABLE: workspaceTable.tableName,
-        KNOWLEDGE_REPOSITORY: 'local-filesystem',
-        // Lambda only permits writes below /tmp. Document durability will move
-        // to the uploads bucket when the S3 knowledge adapter is introduced.
+        KNOWLEDGE_REPOSITORY: 's3',
+        UPLOADS_BUCKET: uploadsBucket.bucketName,
+        SESSION_TABLE: sessionTable.tableName,
+        AUTH_CONFIG_PARAMETER: authConfigPath,
+        // Files are staged in /tmp and persisted in S3 before acknowledging uploads.
         UPLOAD_DIRECTORY: '/tmp/uploads',
       },
       bundling: {
@@ -104,6 +125,11 @@ export class AdaptLearnStack extends Stack {
       },
     });
     workspaceTable.grantReadWriteData(apiFunction);
+    sessionTable.grantReadWriteData(apiFunction);
+    apiFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['ssm:GetParameter'],
+      resources: [this.formatArn({ service: 'ssm', resource: 'parameter', resourceName: authConfigPath.slice(1) })],
+    }));
     uploadsBucket.grantReadWrite(apiFunction, 'knowledge/*');
     apiFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
@@ -150,12 +176,14 @@ export class AdaptLearnStack extends Stack {
         },
       },
     });
-    uploadsBucket.addCorsRule({
-      allowedMethods: [s3.HttpMethods.PUT],
-      allowedOrigins: [`https://${distribution.distributionDomainName}`],
-      allowedHeaders: ['*'],
-      exposedHeaders: ['ETag'],
-      maxAge: 300,
+    const websiteUrl = `https://${distribution.distributionDomainName}`;
+    // Runtime SSM configuration breaks the client -> CloudFront -> Lambda cycle.
+    const clientResource = userPoolClient.node.defaultChild as cognito.CfnUserPoolClient;
+    clientResource.callbackUrLs = [`${websiteUrl}/api/auth/callback`, 'http://localhost:5173/api/auth/callback', 'http://localhost:3000/api/auth/callback'];
+    clientResource.logoutUrLs = [`${websiteUrl}/`, 'http://localhost:5173/', 'http://localhost:3000/'];
+    new ssm.StringParameter(this, 'AuthConfiguration', {
+      parameterName: authConfigPath,
+      stringValue: this.toJsonString({ siteUrl: websiteUrl, domain: userPoolDomain.baseUrl(), clientId: userPoolClient.userPoolClientId, userPoolId: userPool.userPoolId }),
     });
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '..', '..', 'dist'))],
@@ -248,6 +276,8 @@ export class AdaptLearnStack extends Stack {
     new cdk.CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
     new cdk.CfnOutput(this, 'WorkspaceTableName', { value: workspaceTable.tableName });
     new cdk.CfnOutput(this, 'UploadsBucketName', { value: uploadsBucket.bucketName });
+    new cdk.CfnOutput(this, 'CognitoDomain', { value: userPoolDomain.baseUrl() });
+    new cdk.CfnOutput(this, 'AuthConfigParameter', { value: authConfigPath });
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
   }

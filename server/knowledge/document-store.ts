@@ -1,4 +1,4 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import mammoth from 'mammoth';
 import type { KnowledgeDocument } from '../../shared/contracts.ts';
@@ -22,7 +22,7 @@ const supportedExtensions = new Set(['.pdf', '.docx', '.txt', '.md', '.csv']);
 
 const knowledgePath = (documentId: string) => path.join(knowledgeDirectory, `${documentId}.txt`);
 
-async function extractText(file: UploadedDocumentInput): Promise<string> {
+export async function extractText(file: UploadedDocumentInput): Promise<string> {
   const extension = path.extname(file.originalname).toLowerCase();
   if (!supportedExtensions.has(extension)) {
     throw new Error('Unsupported document type. Upload a PDF, DOCX, TXT, Markdown, or CSV file.');
@@ -44,7 +44,7 @@ async function extractText(file: UploadedDocumentInput): Promise<string> {
   return buffer.toString('utf8');
 }
 
-const normalizeText = (text: string) => text
+export const normalizeText = (text: string) => text
   .replace(/\0/g, '')
   .replace(/\r\n?/g, '\n')
   .replace(/[\t ]+\n/g, '\n')
@@ -108,13 +108,14 @@ const documentIsVisible = (document: KnowledgeDocument, query: RetrievalQuery) =
 export async function retrieveLocalPassages(
   documents: KnowledgeDocument[],
   query: RetrievalQuery,
+  loadText: (document: KnowledgeDocument) => Promise<string> = (document) => readFile(knowledgePath(document.provider?.externalId ?? document.id), 'utf8'),
 ): Promise<RetrievedPassage[]> {
   if (!documents.length) return [];
   const terms = queryTerms(query.text);
   const chunks: RankedChunk[] = [];
   for (const document of documents.filter((item) => item.status === 'ready' && documentIsVisible(item, query))) {
     try {
-      chunks.push(...makeChunks(document, await readFile(knowledgePath(document.id), 'utf8'), terms));
+      chunks.push(...makeChunks(document, await loadText(document), terms));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
@@ -159,12 +160,18 @@ export async function loadRelevantDocumentContext(
 
 export class LocalKnowledgeRepository implements KnowledgeRepository {
   readonly backend = 'local-filesystem';
+  async copyTo(document: KnowledgeDocument, learnerId: string): Promise<KnowledgeDocument> {
+    const id = `${learnerId}-${document.id}`;
+    await copyFile(knowledgePath(document.provider?.externalId ?? document.id), knowledgePath(id));
+    await copyFile(path.join(uploadDirectory, document.provider?.externalId ?? document.id), path.join(uploadDirectory, id));
+    return { ...document, scope: { ...document.scope, visibility: document.scope?.visibility ?? 'learner', learnerId }, provider: { backend: 'local-filesystem', externalId: id, sourceUri: `local-knowledge://${id}` } };
+  }
   ingest = ingestDocument;
   retrieve = retrieveLocalPassages;
   async remove(documents: KnowledgeDocument[]): Promise<void> {
     await Promise.all(documents.flatMap((document) => [
-      unlink(knowledgePath(document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
-      unlink(path.join(uploadDirectory, document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
+      unlink(knowledgePath(document.provider?.externalId ?? document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
+      unlink(path.join(uploadDirectory, document.provider?.externalId ?? document.id)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; }),
     ]));
   }
 }
