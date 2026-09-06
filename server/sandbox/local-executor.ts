@@ -198,8 +198,8 @@ finally:
         });
       }
 
-      child.stdout?.on('error', () => {});
-      child.stderr?.on('error', () => {});
+      child.stdout?.on('error', () => { });
+      child.stderr?.on('error', () => { });
 
       const timer = setTimeout(() => {
         timedOut = true;

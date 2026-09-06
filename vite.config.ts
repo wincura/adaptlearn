@@ -10,13 +10,29 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-          target: 'http://127.0.0.1:8787',
-          changeOrigin: true,
+        target: 'http://127.0.0.1:8787',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if ('writeHead' in res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '1' });
+              res.end(JSON.stringify({ error: 'Backend server initializing, please wait...' }));
+            }
+          });
         },
+      },
       '/health': {
-          target: 'http://127.0.0.1:8787',
-          changeOrigin: true,
+        target: 'http://127.0.0.1:8787',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if ('writeHead' in res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'initializing' }));
+            }
+          });
         },
+      },
     },
   },
   build: {

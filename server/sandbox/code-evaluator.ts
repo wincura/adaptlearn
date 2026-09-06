@@ -151,6 +151,10 @@ export function splitEqualityAssertion(assertCode: string): {
   const setup = lines.slice(0, lines.length - 1).join('\n');
 
   let expr = lastLine;
+  expr = expr.replace(/\/\/.*$/, '').trim();
+  if (expr.endsWith(';')) {
+    expr = expr.slice(0, -1).trim();
+  }
   if (expr.startsWith('assert ')) {
     expr = expr.slice(7).trim();
   } else if (expr.startsWith('assert(') && expr.endsWith(')')) {
@@ -259,7 +263,7 @@ export function buildTestRunnerHarness(
 ): string {
   const hasAssertions = cases.some((tc) => Boolean(tc.assertion));
 
-  if (!hasAssertions || (language !== 'python' && language !== 'javascript' && language !== 'typescript')) {
+  if (!hasAssertions || (language !== 'python' && language !== 'javascript' && language !== 'typescript' && language !== 'cpp')) {
     return fallbackHarness ?? '';
   }
 
@@ -403,6 +407,118 @@ function _adaptFormat(v) {
 }
 
 ${caseBlocks}
+`;
+  }
+
+  if (language === 'cpp') {
+    const caseBlocks = cases.map((tc, idx) => {
+      const rawCode = (tc.assertion ?? '').trim();
+      const parsed = splitEqualityAssertion(rawCode);
+      const setupBlock = parsed.setup ? parsed.setup.split(/\r?\n/).map((l) => `      ${l}`).join('\n') + '\n' : '';
+
+      if (parsed.leftExpr && parsed.rightExpr) {
+        return `
+    // Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+    try {
+${setupBlock}      auto _actual = ${parsed.leftExpr};
+      if (_actual == (${parsed.rightExpr})) {
+        std::cout << "__ADAPT_CASE__:${idx}:PASS:" << _adapt_format(_actual) << std::endl;
+      } else {
+        std::cout << "__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:" << _adapt_format(_actual) << std::endl;
+      }
+    } catch (const std::exception& _e) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:" << _e.what() << std::endl;
+    } catch (...) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:Unknown exception thrown" << std::endl;
+    }
+`;
+      }
+
+      if (parsed.leftExpr) {
+        return `
+    // Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+    try {
+${setupBlock}      auto _actual = ${parsed.leftExpr};
+      if (static_cast<bool>(_actual)) {
+        std::cout << "__ADAPT_CASE__:${idx}:PASS:" << _adapt_format(_actual) << std::endl;
+      } else {
+        std::cout << "__ADAPT_CASE__:${idx}:FAIL:WRONG_ANSWER:" << _adapt_format(_actual) << std::endl;
+      }
+    } catch (const std::exception& _e) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:" << _e.what() << std::endl;
+    } catch (...) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:Unknown exception thrown" << std::endl;
+    }
+`;
+      }
+
+      let cleanCode = rawCode.replace(/\/\/.*$/, '').trim();
+      if (cleanCode.endsWith(';')) cleanCode = cleanCode.slice(0, -1).trim();
+      if (cleanCode.startsWith('assert(') && cleanCode.endsWith(')')) {
+        cleanCode = cleanCode.slice(7, -1).trim();
+      }
+
+      return `
+    // Case ${idx}: ${tc.description.replace(/\r?\n/g, ' ')}
+    try {
+${setupBlock}      if (${cleanCode}) {
+        std::cout << "__ADAPT_CASE__:${idx}:PASS:" << std::endl;
+      } else {
+        std::cout << "__ADAPT_CASE__:${idx}:FAIL:ASSERTION:Assertion failed" << std::endl;
+      }
+    } catch (const std::exception& _e) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:" << _e.what() << std::endl;
+    } catch (...) {
+      std::cout << "__ADAPT_CASE__:${idx}:FAIL:ERROR:Unknown exception thrown" << std::endl;
+    }
+`;
+    }).join('\n');
+
+    return `
+// --- AdaptLearn C++ Testcase Runner ---
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <utility>
+#include <exception>
+
+template <typename T>
+std::string _adapt_format(const T& val);
+
+inline std::string _adapt_format(const std::string& val) { return "\\"" + val + "\\""; }
+inline std::string _adapt_format(const char* val) { return val ? std::string("\\"") + val + "\\"" : "null"; }
+inline std::string _adapt_format(bool val) { return val ? "true" : "false"; }
+inline std::string _adapt_format(char val) { return std::string("'") + val + "'"; }
+
+template <typename T>
+std::string _adapt_format(const std::vector<T>& vec) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << _adapt_format(vec[i]);
+    }
+    oss << "]";
+    return oss.str();
+}
+
+template <typename T1, typename T2>
+std::string _adapt_format(const std::pair<T1, T2>& p) {
+    return "(" + _adapt_format(p.first) + ", " + _adapt_format(p.second) + ")";
+}
+
+template <typename T>
+std::string _adapt_format(const T& val) {
+    std::ostringstream oss;
+    oss << val;
+    return oss.str();
+}
+
+int main() {
+${caseBlocks}
+    return 0;
+}
 `;
   }
 

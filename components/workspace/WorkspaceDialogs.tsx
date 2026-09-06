@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowForwardRounded, CheckRounded, CloseRounded, CodeRounded, DeleteOutlineRounded, DescriptionRounded, QuizRounded, ReplayRounded } from '@mui/icons-material';
-import { Dialog, DialogContent, IconButton, LinearProgress } from '@mui/material';
+import { CircularProgress, Dialog, DialogContent, IconButton, LinearProgress } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../../lib/api';
@@ -93,19 +93,31 @@ export function MaterialDialog({ material: initialMaterial, learnerId, onClose, 
     setMaterial(initialMaterial);
   }, [initialMaterial]);
 
-  const handleGenerateChallenge = async () => {
-    if (!material || !learnerId) return;
+  const handleGenerateChallenge = useCallback(async () => {
+    if (!material || !learnerId || generatingChallenge) return;
     setGeneratingChallenge(true);
     try {
       const res = await api.generateCodingChallenge(learnerId, material.id);
-      setMaterial({ ...material, codingChallenge: res.challenge, codingChallenges: [res.challenge], isCodeTopic: true });
+      setMaterial((prev) => prev ? {
+        ...prev,
+        codingChallenge: res.challenge,
+        codingChallenges: [res.challenge],
+        isCodeTopic: true,
+      } : prev);
       if (onWorkspaceUpdated) onWorkspaceUpdated(res.workspace);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not generate coding challenge.');
+      console.error('Could not generate coding challenge:', err);
     } finally {
       setGeneratingChallenge(false);
     }
-  };
+  }, [material, learnerId, generatingChallenge, onWorkspaceUpdated]);
+
+  // Auto-generate coding challenge for practice activities and code topics so user does not need to click redundant button
+  useEffect(() => {
+    if (material && material.isCodeTopic && !material.codingChallenge && !generatingChallenge && learnerId) {
+      handleGenerateChallenge();
+    }
+  }, [material, generatingChallenge, learnerId, handleGenerateChallenge]);
 
   const handleNextChallenge = async () => {
     if (!material || !learnerId) return;
@@ -123,7 +135,7 @@ export function MaterialDialog({ material: initialMaterial, learnerId, onClose, 
   };
 
   const label = material?.kind === 'practice-lab' ? 'PRACTICE ACTIVITY' : 'SOURCED LESSON';
-  return <Dialog open={Boolean(material)} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { className: 'studio-dialog material-dialog' } }}><IconButton className="dialog-close" onClick={onClose}><CloseRounded /></IconButton>{material && <DialogContent><span className="dialog-kicker">{label}</span><h2>{material.title}</h2><p>{material.summary}</p>{material.kind === 'lesson' && (material.assessedLevel || material.topics?.length) && <div className="lesson-state"><div><span>ADAPTED LEVEL</span><strong>{material.assessedLevel ?? 'Legacy lesson'}</strong>{material.diagnosticFocus?.length ? <small>Extra support: {material.diagnosticFocus.join(' · ')}</small> : null}</div>{material.topics && <div><span>TOPICS COVERED</span><p>{material.topics.join(' · ')}</p></div>}</div>}<div className="material-sections">{material.sections.map((section, index) => <section key={`${section.title}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{section.title}</h3><div className="lesson-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noreferrer">{children}</a> }}>{section.content}</ReactMarkdown></div>{material.kind === 'practice-lab' && section.activities && section.activities.length > 0 && <div className="lesson-activities"><strong>Activities</strong><ul>{section.activities.map((activity) => <li key={activity}>{activity}</li>)}</ul></div>}</div></section>)}</div>{material.codingChallenge ? <CodeSandbox challenge={material.codingChallenge} challenges={material.codingChallenges ?? (material.codingChallenge ? [material.codingChallenge] : [])} materialId={material.id} learnerId={learnerId} goalId={material.goalId} onRequestNextChallenge={handleNextChallenge} onCompleted={(_, ws) => ws && onWorkspaceUpdated?.(ws)} /> : material.isCodeTopic && learnerId ? <div className="generate-challenge-banner"><div><span className="sandbox-badge"><CodeRounded fontSize="inherit" /> PRACTICAL CODING CHALLENGE</span><h3 style={{ margin: '6px 0 2px', fontSize: 17, color: '#f3f7f5' }}>Hands-on Execution Test</h3><p style={{ margin: 0, fontSize: 13.5, color: '#9cb3aa' }}>Practice what you learned with an executable coding exercise evaluated by your Socratic AI Tutor.</p></div><button type="button" className="dialog-primary" disabled={generatingChallenge} onClick={handleGenerateChallenge} style={{ whiteSpace: 'nowrap' }}><CodeRounded /> {generatingChallenge ? 'Generating test…' : 'Generate Coding Test'}</button></div> : null}{material.quiz?.length ? <LessonQuiz key={material.id} questions={material.quiz} /> : null}{material.sources && material.sources.length > 0 && <section className="lesson-sources"><span>SOURCES USED</span><h3>Where this lesson came from</h3><div>{material.sources.map((source, index) => <article key={`${source.title}-${index}`}><small>{source.origin === 'uploaded-document' ? 'YOUR UPLOADED DOCUMENT' : 'PUBLIC WEB'}</small>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}</article>)}</div></section>}</DialogContent>}</Dialog>;
+  return <Dialog open={Boolean(material)} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { className: 'studio-dialog material-dialog' } }}><IconButton className="dialog-close" onClick={onClose}><CloseRounded /></IconButton>{material && <DialogContent><span className="dialog-kicker">{label}</span><h2>{material.title}</h2><p>{material.summary}</p>{material.kind === 'lesson' && (material.assessedLevel || material.topics?.length) && <div className="lesson-state"><div><span>ADAPTED LEVEL</span><strong>{material.assessedLevel ?? 'Legacy lesson'}</strong>{material.diagnosticFocus?.length ? <small>Extra support: {material.diagnosticFocus.join(' · ')}</small> : null}</div>{material.topics && <div><span>TOPICS COVERED</span><p>{material.topics.join(' · ')}</p></div>}</div>}<div className="material-sections">{material.sections.map((section, index) => <section key={`${section.title}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h3>{section.title}</h3><div className="lesson-content"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, title, children }) => <a href={href} title={title} target="_blank" rel="noreferrer">{children}</a> }}>{section.content}</ReactMarkdown></div>{material.kind === 'practice-lab' && section.activities && section.activities.length > 0 && <div className="lesson-activities"><strong>Activities</strong><ul>{section.activities.map((activity) => <li key={activity}>{activity}</li>)}</ul></div>}</div></section>)}</div>{material.codingChallenge ? <CodeSandbox challenge={material.codingChallenge} challenges={material.codingChallenges ?? (material.codingChallenge ? [material.codingChallenge] : [])} materialId={material.id} learnerId={learnerId} goalId={material.goalId} onRequestNextChallenge={handleNextChallenge} onCompleted={(_, ws) => ws && onWorkspaceUpdated?.(ws)} /> : material.isCodeTopic && learnerId ? <div className="generate-challenge-banner"><div><span className="sandbox-badge"><CodeRounded fontSize="inherit" /> PRACTICAL CODING CHALLENGE</span><h3 style={{ margin: '6px 0 2px', fontSize: 17, color: '#f3f7f5' }}>Preparing Hands-on Coding Practice…</h3><p style={{ margin: 0, fontSize: 13.5, color: '#9cb3aa' }}>Generating an interactive challenge tailored to your skill level.</p></div><button type="button" className="dialog-primary" disabled style={{ whiteSpace: 'nowrap' }}><CircularProgress size={16} color="inherit" style={{ marginRight: 6 }} /> Generating practice question…</button></div> : null}{material.quiz?.length ? <LessonQuiz key={material.id} questions={material.quiz} /> : null}{material.sources && material.sources.length > 0 && <section className="lesson-sources"><span>SOURCES USED</span><h3>Where this lesson came from</h3><div>{material.sources.map((source, index) => <article key={`${source.title}-${index}`}><small>{source.origin === 'uploaded-document' ? 'YOUR UPLOADED DOCUMENT' : 'PUBLIC WEB'}</small>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}</article>)}</div></section>}</DialogContent>}</Dialog>;
 }
 
 export function PlacementDialog({ assessment, busy, result, onClose, onSubmit }: { assessment?: PublicPlacementAssessment; busy: boolean; result?: PlacementResult; onClose: () => void; onSubmit: (answers: number[]) => Promise<void> }) {

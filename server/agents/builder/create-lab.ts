@@ -69,13 +69,18 @@ export async function createBuilderLab(store: WorkspaceRepository, learnerId: st
   const goal = workspace.goals.find((item) => item.id === goalId);
   if (!goal) throw new Error('Active learning goal not found.');
   const teacherMaterial = [...workspace.materials].reverse().find((item) => item.goalId === goalId && item.owner === 'teacher');
+  const latestAssessment = workspace.assessments
+    .filter((assessment) => assessment.goalId === goalId && assessment.completedAt)
+    .sort((left, right) => (right.completedAt ?? '').localeCompare(left.completedAt ?? ''))[0];
+  const assessedLevel = latestAssessment?.level ?? 'Beginner';
+
   const raw = await aiChat({
     jsonSchema: { name: 'practice_lab', schema: labJsonSchema },
     temperature: 0.25,
     messages: [
       { role: 'system', content: builderAgent.systemPrompt },
-      { role: 'system', content: 'Return only valid JSON with title, summary, and sections as an array of section objects. Sections must cover objective, environment/starter state, steps, expected result, reset path, and safety limits.' },
-      { role: 'user', content: `Build a practice-lab specification for ${JSON.stringify(goal)}.\nTeacher context: ${teacherMaterial ? JSON.stringify(teacherMaterial) : 'No Teacher material exists yet; keep the lab foundational.'}\nLearner: ${JSON.stringify(workspace.profile)}` },
+      { role: 'system', content: 'Return only valid JSON with title, summary, and sections as an array of section objects. Sections must cover practical learning objectives, key concepts & syntax recap, step-by-step guidance, and hands-on exercises. Never output developer infrastructure notes like reset paths or safety limits.' },
+      { role: 'user', content: `Build a student-friendly practice activity for ${JSON.stringify(goal)}.\nAssessed learner level: ${assessedLevel}\nTeacher context: ${teacherMaterial ? JSON.stringify(teacherMaterial) : 'No Teacher material exists yet; keep the activity foundational.'}\nLearner: ${JSON.stringify(workspace.profile)}` },
     ],
   });
   const content = labSchema.parse(parseJsonObject(raw));
@@ -89,7 +94,7 @@ export async function createBuilderLab(store: WorkspaceRepository, learnerId: st
         content.title,
         content.title,
         detected.language,
-        'Beginner',
+        assessedLevel,
       );
     } catch (err) {
       console.warn(`[AdaptLearn] Builder coding challenge skipped: ${err instanceof Error ? err.message : String(err)}`);

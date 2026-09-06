@@ -11,7 +11,7 @@ const rememberKind = (kind: string) => { try { window.localStorage.setItem(accou
 const previousKind = () => { try { return window.localStorage.getItem(accountHintKey); } catch { return null; } };
 export type AuthSession = { kind: 'guest' | 'account'; learnerId: string; csrfToken: string; signInAvailable: boolean; needsName: boolean; importPending: boolean; displayName: string };
 
-async function request<T>(path: string, init?: RequestInit, retries = 2): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, retries = 4, attempt = 1): Promise<T> {
   try {
     const headers = new Headers(init?.headers);
     if (init?.method && !['GET', 'HEAD'].includes(init.method)) {
@@ -21,18 +21,26 @@ async function request<T>(path: string, init?: RequestInit, retries = 2): Promis
     const response = await fetch(`${API_URL}${path}`, { ...init, headers, credentials: 'include' });
     if (response.status === 401) window.dispatchEvent(new Event('adaptlearn:session-expired'));
     if (!response.ok) {
-      if ((response.status === 502 || response.status === 503) && retries > 0) {
-        await new Promise((r) => setTimeout(r, 300));
-        return request<T>(path, init, retries - 1);
+      if ((response.status === 502 || response.status === 503 || response.status === 504) && retries > 0) {
+        const delay = Math.min(attempt * 600, 2500);
+        await new Promise((r) => setTimeout(r, delay));
+        return request<T>(path, init, retries - 1, attempt + 1);
       }
       const body = await response.json().catch(() => ({ error: `Request failed (${response.status})` })) as { error?: string };
       throw new Error(body.error ?? `Request failed (${response.status})`);
     }
     return response.json() as Promise<T>;
   } catch (err) {
-    if (retries > 0 && err instanceof Error && (err.message.includes('fetch failed') || err.message.includes('ECONNRESET') || err.message.includes('network'))) {
-      await new Promise((r) => setTimeout(r, 300));
-      return request<T>(path, init, retries - 1);
+    if (retries > 0 && err instanceof Error && (
+      err.message.includes('fetch failed') ||
+      err.message.includes('ECONNRESET') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('network') ||
+      err.name === 'TypeError'
+    )) {
+      const delay = Math.min(attempt * 600, 2500);
+      await new Promise((r) => setTimeout(r, delay));
+      return request<T>(path, init, retries - 1, attempt + 1);
     }
     throw err;
   }

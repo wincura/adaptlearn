@@ -28,6 +28,37 @@ async function resolveE2BApiKey(): Promise<string | undefined> {
 export class E2BSandboxExecutor implements SandboxExecutor {
   readonly id = 'e2b-microvm';
 
+  private async runCommand(
+    sandbox: Sandbox,
+    command: string,
+    timeoutMs?: number,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string; error?: string }> {
+    try {
+      const res = await sandbox.commands.run(command, timeoutMs ? { timeoutMs } : undefined);
+      return {
+        exitCode: res.exitCode ?? 0,
+        stdout: (res.stdout ?? '').trim(),
+        stderr: (res.stderr ?? '').trim(),
+      };
+    } catch (err: any) {
+      // In E2B, sandbox.commands.run throws CommandExitError when exit code != 0 or when killed by signal (e.g. SIGABRT)
+      const exitCode = typeof err?.exitCode === 'number' ? err.exitCode : 1;
+      const stdout = (err?.stdout ?? '').toString().trim();
+      let stderr = (err?.stderr ?? '').toString().trim();
+      if (!stderr && err?.error) {
+        stderr = err.error.toString().trim();
+      } else if (!stderr && err?.message) {
+        stderr = err.message.toString().trim();
+      }
+      return {
+        exitCode,
+        stdout,
+        stderr,
+        error: err?.message ?? 'Command failed',
+      };
+    }
+  }
+
   async execute(options: SandboxExecutionOptions): Promise<ExecutionResult> {
     const apiKey = await resolveE2BApiKey();
     if (!apiKey) {
@@ -97,24 +128,29 @@ finally:
 
       if (language === 'cpp') {
         const fullScript = `${code}\n\n${harness}`;
-        await sandbox.commands.run(`cat << 'EOF' > solution.cpp\n${fullScript}\nEOF`);
-        const compileRes = await sandbox.commands.run('g++ -O2 -Wall solution.cpp -o solution');
+        try {
+          await sandbox.files.write('solution.cpp', fullScript);
+        } catch {
+          await this.runCommand(sandbox, `cat << 'EOF' > solution.cpp\n${fullScript}\nEOF`);
+        }
+
+        const compileRes = await this.runCommand(sandbox, 'g++ -O2 -Wall solution.cpp -o solution');
         if (compileRes.exitCode !== 0) {
           return {
             status: 'compile_error',
-            stdout: '',
+            stdout: compileRes.stdout,
             stderr: compileRes.stderr,
             exitCode: compileRes.exitCode,
             durationMs: Date.now() - startTime,
           };
         }
 
-        const execRes = await sandbox.commands.run('./solution');
+        const execRes = await this.runCommand(sandbox, './solution');
         const durationMs = Date.now() - startTime;
         return {
           status: execRes.exitCode === 0 ? 'passed' : 'runtime_error',
-          stdout: execRes.stdout.trim(),
-          stderr: execRes.stderr.trim(),
+          stdout: execRes.stdout,
+          stderr: execRes.stderr || (execRes.exitCode !== 0 ? (execRes.error || 'Execution failed') : ''),
           exitCode: execRes.exitCode,
           durationMs,
         };
@@ -122,24 +158,29 @@ finally:
 
       if (language === 'java') {
         const fullScript = `${code}\n\n${harness}`;
-        await sandbox.commands.run(`cat << 'EOF' > Solution.java\n${fullScript}\nEOF`);
-        const compileRes = await sandbox.commands.run('javac Solution.java');
+        try {
+          await sandbox.files.write('Solution.java', fullScript);
+        } catch {
+          await this.runCommand(sandbox, `cat << 'EOF' > Solution.java\n${fullScript}\nEOF`);
+        }
+
+        const compileRes = await this.runCommand(sandbox, 'javac Solution.java');
         if (compileRes.exitCode !== 0) {
           return {
             status: 'compile_error',
-            stdout: '',
+            stdout: compileRes.stdout,
             stderr: compileRes.stderr,
             exitCode: compileRes.exitCode,
             durationMs: Date.now() - startTime,
           };
         }
 
-        const execRes = await sandbox.commands.run('java Solution');
+        const execRes = await this.runCommand(sandbox, 'java Solution');
         const durationMs = Date.now() - startTime;
         return {
           status: execRes.exitCode === 0 ? 'passed' : 'runtime_error',
-          stdout: execRes.stdout.trim(),
-          stderr: execRes.stderr.trim(),
+          stdout: execRes.stdout,
+          stderr: execRes.stderr || (execRes.exitCode !== 0 ? (execRes.error || 'Execution failed') : ''),
           exitCode: execRes.exitCode,
           durationMs,
         };

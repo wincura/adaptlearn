@@ -8,6 +8,10 @@ import { cpp } from '@codemirror/lang-cpp';
 import { java } from '@codemirror/lang-java';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { indentUnit } from '@codemirror/language';
+import { EditorState } from '@codemirror/state';
+import { keymap } from '@codemirror/view';
+import { indentWithTab } from '@codemirror/commands';
 import {
   ArrowForwardRounded,
   CheckCircleOutlineRounded,
@@ -51,21 +55,27 @@ type CodeSandboxProps = {
 };
 
 function getLanguageExtension(lang: SupportedCodeLanguage) {
+  const baseExtensions = [
+    indentUnit.of('    '),
+    EditorState.tabSize.of(4),
+    keymap.of([indentWithTab]),
+  ];
+
   switch (lang) {
     case 'python':
-      return [python()];
+      return [...baseExtensions, python()];
     case 'javascript':
-      return [javascript({ jsx: true })];
+      return [...baseExtensions, javascript({ jsx: true })];
     case 'typescript':
-      return [javascript({ typescript: true, jsx: true })];
+      return [...baseExtensions, javascript({ typescript: true, jsx: true })];
     case 'cpp':
-      return [cpp()];
+      return [...baseExtensions, cpp()];
     case 'java':
-      return [java()];
+      return [...baseExtensions, java()];
     case 'sql':
-      return [sql()];
+      return [...baseExtensions, sql()];
     default:
-      return [python()];
+      return [...baseExtensions, python()];
   }
 }
 
@@ -390,16 +400,16 @@ export function CodeSandbox({
     challenge.language === 'python'
       ? 'py'
       : challenge.language === 'javascript'
-      ? 'js'
-      : challenge.language === 'typescript'
-      ? 'ts'
-      : challenge.language === 'cpp'
-      ? 'cpp'
-      : challenge.language === 'java'
-      ? 'java'
-      : challenge.language === 'sql'
-      ? 'sql'
-      : 'txt';
+        ? 'js'
+        : challenge.language === 'typescript'
+          ? 'ts'
+          : challenge.language === 'cpp'
+            ? 'cpp'
+            : challenge.language === 'java'
+              ? 'java'
+              : challenge.language === 'sql'
+                ? 'sql'
+                : 'txt';
 
   const currentChallengeIndex = allChallenges.findIndex((c) => c.id === challenge.id);
   const safeCurrentIndex = currentChallengeIndex >= 0 ? currentChallengeIndex : 0;
@@ -558,6 +568,7 @@ export function CodeSandbox({
               theme={oneDark}
               extensions={getLanguageExtension(challenge.language)}
               onChange={handleCodeChange}
+              indentWithTab={true}
               basicSetup={{
                 lineNumbers: true,
                 highlightActiveLineGutter: true,
@@ -686,9 +697,8 @@ export function CodeSandbox({
               <div className="testcases-viewer">
                 {/* Status Summary Banner */}
                 <div
-                  className={`testcase-summary-banner ${
-                    runResult?.status === 'passed' ? 'passed' : 'failed'
-                  }`}
+                  className={`testcase-summary-banner ${runResult?.status === 'passed' ? 'passed' : 'failed'
+                    }`}
                 >
                   {runResult?.status === 'passed' ? (
                     <CheckCircleRounded className="status-icon success" />
@@ -702,8 +712,8 @@ export function CodeSandbox({
                           ? `Accepted! All ${runResult?.totalCount ?? 0} Test Cases Passed`
                           : `Submission Incomplete (${runResult?.passedCount ?? 0} / ${runResult?.totalCount ?? 0} Passed)`
                         : runResult?.status === 'passed'
-                        ? `All Public Test Cases Passed (${runResult?.passedCount ?? 0}/${runResult?.totalCount ?? 0})`
-                        : `${runResult?.passedCount ?? 0} / ${runResult?.totalCount ?? 0} Public Test Cases Passed`}
+                          ? `All Public Test Cases Passed (${runResult?.passedCount ?? 0}/${runResult?.totalCount ?? 0})`
+                          : `${runResult?.passedCount ?? 0} / ${runResult?.totalCount ?? 0} Public Test Cases Passed`}
                     </strong>
                     <span>
                       {lastMode === 'submit'
@@ -711,8 +721,8 @@ export function CodeSandbox({
                           ? `All public & private edge cases verified. +25 XP awarded!`
                           : `Review the failing testcase or check the AI Tutor feedback for guidance.`
                         : runResult?.status === 'passed'
-                        ? `Looking good! Click 'Submit Solution' to test against hidden private edge cases.`
-                        : `Adjust your code to handle the failing public case before submitting.`}
+                          ? `Looking good! Click 'Submit Solution' to test against hidden private edge cases.`
+                          : `Adjust your code to handle the failing public case before submitting.`}
                     </span>
                   </div>
                 </div>
@@ -755,9 +765,8 @@ export function CodeSandbox({
                     <button
                       key={tc.testCaseId || idx}
                       type="button"
-                      className={`testcase-chip ${selectedCaseIndex === idx ? 'active' : ''} ${
-                        tc.passed ? 'passed' : 'failed'
-                      } ${tc.isHidden ? 'private-chip' : ''}`}
+                      className={`testcase-chip ${selectedCaseIndex === idx ? 'active' : ''} ${tc.passed ? 'passed' : 'failed'
+                        } ${tc.isHidden ? 'private-chip' : ''}`}
                       onClick={() => setSelectedCaseIndex(idx)}
                     >
                       <span className="testcase-chip-icon">
@@ -792,9 +801,8 @@ export function CodeSandbox({
                             <span className="testcase-pill public">Public Case</span>
                           )}
                           <span
-                            className={`testcase-pill ${
-                              activeTestCase.passed ? 'passed' : 'failed'
-                            }`}
+                            className={`testcase-pill ${activeTestCase.passed ? 'passed' : 'failed'
+                              }`}
                           >
                             {activeTestCase.passed ? 'PASSED' : 'WRONG ANSWER / FAILED'}
                           </span>
@@ -817,9 +825,8 @@ export function CodeSandbox({
                         </div>
 
                         <div
-                          className={`private-result-banner ${
-                            activeTestCase.passed ? 'passed' : 'failed'
-                          }`}
+                          className={`private-result-banner ${activeTestCase.passed ? 'passed' : 'failed'
+                            }`}
                         >
                           <span className="private-result-icon">
                             {activeTestCase.passed ? '✓' : '✗'}
@@ -864,9 +871,8 @@ export function CodeSandbox({
                         {/* User's Output */}
                         {activeTestCase.actualOutput !== undefined ? (
                           <div
-                            className={`testcase-io-block ${
-                              activeTestCase.passed ? 'actual-success' : 'actual-fail'
-                            }`}
+                            className={`testcase-io-block ${activeTestCase.passed ? 'actual-success' : 'actual-fail'
+                              }`}
                           >
                             <span className="testcase-io-label">Your Output:</span>
                             <pre className="testcase-io-pre">{activeTestCase.actualOutput}</pre>

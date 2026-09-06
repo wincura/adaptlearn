@@ -108,7 +108,7 @@ export function installAuth(app: Express, store: WorkspaceRepository, knowledge:
 
   app.get('/api/auth/login', async (request, response) => {
     const settings = await config();
-    if (!configured(settings)) throw new HttpError(503, 'Sign-in is not configured yet. You can keep learning as a guest.');
+    if (!configured(settings)) return response.redirect(`${settings.siteUrl}/?authError=not-configured`);
     // Bind the one-time state to this browser, including an expired account cookie.
     let browserId = sessionId(request);
     if (!browserId) browserId = (await createGuest(response, settings)).id;
